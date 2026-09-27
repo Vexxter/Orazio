@@ -1,18 +1,20 @@
 # Orazio
 
-Self-hosted charting for Indian and global indices — Flask backend, Lightweight-Charts frontend. Runs on your machine, talks straight to Yahoo/NSE/BSE's own public endpoints. No login, no account, no API keys, nothing to pay for.
+A free, open-source TradingView alternative — self-hosted charting for Indian and global indices, live quotes plus historical candles, backed by Yahoo/NSE/BSE's own public endpoints instead of a paid data plan. Runs on your machine. No login, no account, no API keys, nothing to pay for.
+
+**Why this exists:** TradingView put a ~15-minute delay on Indian market data for free-tier users, so traders got pushed toward a paid subscription just to see a live price. Orazio hits the exchanges' own feeds directly and skips that entirely.
 
 ## Features
 
-- Live candles — quotes every 2s, current bar gets patched in as it moves instead of waiting for a refetch.
+- Live candles + full historical data — intraday and daily bars, drag left to load older days, not just the current session.
+- SENSEX real-time from BSE's own push stream (Yahoo delays it ~15 min).
+- CAS terminal: countdown panel, live 4-quadrant movement view, and a stock-by-stock auction feed with order books (pre-open and closing auction).
+- Charting: 11-index rail, candles/bars/line/area, SMA 20/50/200, volume, symbol search, a two-point measure tool.
+- Market breadth and Top Movers (gainers/losers) across NIFTY, BANK NIFTY, SENSEX, DOW, S&P 500, CSI 300.
 - Data-age badge (`Live · 3s`, `Delayed 10m`, `Closed`) so a stale feed never looks like a broken app.
-- SENSEX from BSE's own push stream — Yahoo delays it ~15 min.
-- CAS terminal: a countdown panel, a 4-quadrant live movement view (NIFTY, BANK NIFTY, NIFTY IT, SENSEX vs. the 15:14:59 reference), and a stock-by-stock auction feed with order books — pre-open and closing auction both.
-- Charting: 11-index rail, candles/bars/line/area, 1m–1D bars, 1D–All ranges, drag left for older days, SMA 20/50/200, volume, symbol search, a two-point measure tool (click two points, get Δ price/%/time).
-- Cash/futures toggle for SPX/Nasdaq/Dow; options chains for US stocks.
-- Market breadth (advances/declines) under NIFTY, BANK NIFTY, NIFTY IT, SENSEX, DOW JONES, S&P 500 and CSI 300 in the rail. NSE hands the first three out for free; the other four are computed here from each index's own constituents (batched yfinance calls, not a live feed) — for those four you also get a combined constituent volume figure, since indices themselves don't have a real "volume" (yfinance reports 0 for every index ticker). NASDAQ, KOSPI, TAIEX and Shanghai don't get a line — no accurate free constituent list exists for them, and a guessed subset would misrepresent the index.
-- Top Movers tab: gainers/losers for the whole market, NIFTY, BANK NIFTY, SENSEX, DOW, S&P 500 or CSI 300 — the last four ranked from the same constituent data the breadth counts above are built from, not a second fetch.
-- Light mode toggle, remembers your choice.
+- Cash/futures toggle and options chains for US symbols; light mode.
+
+**Not real-time:** US/KOSPI/TAIEX/CSI 300/Shanghai indices (Yahoo only, no push feed available), ES/NQ/YM futures (~10 min delayed via CME), and NSE's own indicative index ticks (~1/min). Full breakdown below.
 
 ## Quick start
 
@@ -92,7 +94,6 @@ Other paths:
 |---|---|
 | `static/index.html`, `static/styles.css` | Markup and design tokens |
 | `tests/` | Unit tests for the pure logic (symbol validation, range resolution, CAS phase calc, …) |
-| `tasks/` | Spec, plan and todo history |
 
 ## Limits
 
@@ -107,5 +108,6 @@ This tool is for informational and educational purposes only. It is not a replac
 ## Roadmap
 
 - Corporate actions (splits, bonuses, dividends) currently aren't adjusted for, so candle history can show a discontinuity across an ex-date — needs a proper adjustment pass.
+- Global market data sources (a real feed for US/Korea/Taiwan/China beyond plain Yahoo) are a work in progress — no free, accurate source found yet. Indian markets are the priority for now, since that's what I actively trade.
 - Assorted QoL bug fixes as they turn up.
 - No guarantees on timeline — maintained as time allows, with no warranty of fitness for any purpose.
