@@ -1,0 +1,10 @@
+flask
+flask-cors
+yfinance
+requests
+websockets
+certifi
+cryptography
+pandas
+lxml
+pytest

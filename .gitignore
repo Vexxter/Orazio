@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.log
+.claude/
+graphify-out/
+tasks/
+plan.txt
