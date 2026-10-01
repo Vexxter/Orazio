@@ -23,8 +23,9 @@ import yfinance as yf
 
 from .bse_stream import BseStream
 from .cache import cached
-from .constants import IST, LIVE_BAR_POLL_SEC, NSE_INDEX_BY_YAHOO, QUOTE_CACHE_TTL
-from .http_clients import bse_http, yahoo_http
+from .constants import (IST, LIVE_BAR_POLL_SEC, NAVER_INDEX_CODE, NSE_INDEX_BY_YAHOO,
+                         QUOTE_CACHE_TTL, SINA_INDEX_CODE, TWSE_INDEX_CODE)
+from .http_clients import bse_http, naver_http, sina_http, twse_http, yahoo_http
 from .nse_client import nse_get
 
 
@@ -116,8 +117,105 @@ def nse_index_quote(symbol):
     return cached(("nse-index", symbol), QUOTE_CACHE_TTL, fetch)
 
 
+def sina_index_quote(symbol):
+    """China: Sina Finance's own quote widget endpoint — the free source every Chinese
+    fintech site's front end uses, not an official/registered API. Its 's_' (simple)
+    format is a handful of comma-separated fields, unchanged for over a decade:
+    name, current, change, change%, volume, turnover. No timestamp is included, but the
+    feed itself refreshes every few seconds, so "now" is close enough.
+    """
+    code = SINA_INDEX_CODE.get(symbol)
+    if not code:
+        return None
+
+    def fetch():
+        try:
+            r = sina_http.get("https://hq.sinajs.cn/list=" + code, timeout=4)
+            r.raise_for_status()
+            raw = r.content.decode("gbk", errors="ignore").split('"')[1]
+            fields = raw.split(",")
+            price, change = float(fields[1]), float(fields[2])
+            if price <= 0:
+                return None
+            return {"price": price, "prevClose": price - change, "marketTime": int(time.time()), "currency": "CNY"}
+        except (requests.RequestException, KeyError, IndexError, TypeError, ValueError):
+            return None
+    return cached(("sina", symbol), QUOTE_CACHE_TTL, fetch)
+
+
+def naver_index_quote(symbol):
+    """Korea: Naver Finance's own polling endpoint — the backend its live index widget
+    calls client-side. Public JSON, no auth. Verified live shape:
+    {"datas": [{"closePriceRaw": "6868.02", "compareToPreviousClosePriceRaw": "-2.79",
+    "localTradedAt": "2026-09-30T11:55:53+09:00", ...}]} — the "Raw" fields are plain
+    decimal strings (the non-Raw ones are comma-formatted for display).
+    """
+    code = NAVER_INDEX_CODE.get(symbol)
+    if not code:
+        return None
+
+    def fetch():
+        try:
+            r = naver_http.get(f"https://polling.finance.naver.com/api/realtime/domestic/index/{code}", timeout=4)
+            r.raise_for_status()
+            row = r.json()["datas"][0]
+            price = float(row["closePriceRaw"])
+            change = float(row["compareToPreviousClosePriceRaw"])
+            if price <= 0:
+                return None
+            market_time = int(datetime.fromisoformat(row["localTradedAt"]).timestamp())
+            return {"price": price, "prevClose": price - change, "marketTime": market_time, "currency": "KRW"}
+        except (requests.RequestException, KeyError, IndexError, TypeError, ValueError):
+            return None
+    return cached(("naver", symbol), QUOTE_CACHE_TTL, fetch)
+
+
+_twse_warmed_at = 0
+
+
+def twse_index_quote(symbol):
+    """Taiwan: TWSE's own live-quote widget backend (mis.twse.com.tw) — verified live,
+    covers the TAIEX aggregate itself (ex_ch=tse_t00.tw), not just individual stocks.
+    Needs a warm-up GET on the quote page first (same cookie-before-JSON shape as NSE)
+    or it silently answers with an empty msgArray instead of an error.
+    """
+    code = TWSE_INDEX_CODE.get(symbol)
+    if not code:
+        return None
+
+    def fetch():
+        global _twse_warmed_at
+        try:
+            now = time.time()
+            if now - _twse_warmed_at > 240:
+                twse_http.get("https://mis.twse.com.tw/stock/index.jsp", timeout=5)
+                _twse_warmed_at = now
+            r = twse_http.get("https://mis.twse.com.tw/stock/api/getStockInfo.jsp",
+                               params={"ex_ch": code, "json": 1, "delay": 0}, timeout=4)
+            r.raise_for_status()
+            row = (r.json().get("msgArray") or [{}])[0]
+            z = row.get("z")
+            price = float(z) if z not in (None, "-", "") else None
+            prev = float(row["y"])
+            if not price or not prev:
+                return None
+            stamp = row.get("tlong")
+            market_time = int(int(stamp) / 1000) if stamp else int(time.time())
+            return {"price": price, "prevClose": prev, "marketTime": market_time, "currency": "TWD"}
+        except (requests.RequestException, KeyError, IndexError, TypeError, ValueError):
+            _twse_warmed_at = 0  # cookie may have gone stale — force a re-warm next call
+            return None
+    return cached(("twse", symbol), QUOTE_CACHE_TTL, fetch)
+
+
 # Symbols whose best live source is not Yahoo.
-SPECIAL_QUOTE_SOURCES = {"^BSESN": ("bse", bse_live_quote)}
+SPECIAL_QUOTE_SOURCES = {
+    "^BSESN": ("bse", bse_live_quote),
+    "000300.SS": ("sina", sina_index_quote),
+    "000001.SS": ("sina", sina_index_quote),
+    "^KS11": ("naver", naver_index_quote),
+    "^TWII": ("twse", twse_index_quote),
+}
 
 # ---------------------------------------------------------------------------
 # Live bar aggregation.
@@ -127,7 +225,11 @@ SPECIAL_QUOTE_SOURCES = {"^BSESN": ("bse", bse_live_quote)}
 # bucket. /api/candles then splices these onto Yahoo's older, authoritative history.
 # Coverage is "since this process started", which is why Yahoo still supplies history.
 # ---------------------------------------------------------------------------
-LIVE_BAR_SOURCES = {"^BSESN": bse_live_quote}
+LIVE_BAR_SOURCES = {
+    "^BSESN": bse_live_quote,
+    "000300.SS": sina_index_quote, "000001.SS": sina_index_quote,
+    "^KS11": naver_index_quote, "^TWII": twse_index_quote,
+}
 _live_bars = {}          # yahoo symbol -> {minute_epoch: [open, high, low, close]}
 _live_bars_lock = threading.Lock()
 

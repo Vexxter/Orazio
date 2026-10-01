@@ -20,9 +20,9 @@
     </h1>
     <div id="rail-groups"></div>
 
-    <section class="cas" id="cas" aria-label="Call auction session">
+    <section class="cas" id="cas" aria-label="Closing auction session">
       <button type="button" class="cas-head" id="cas-toggle" aria-expanded="true" aria-controls="cas-body">
-        <span class="cas-title">Call Auction</span>
+        <span class="cas-title">Closing Auction</span>
         <svg class="cas-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
         <span class="cas-phase" id="cas-phase" data-live="false">—</span>
       </button>
@@ -68,8 +68,17 @@
         <option value="area">Area</option>
       </select>
 
-      <button type="button" class="btn icon" id="measure-btn" aria-pressed="false" aria-label="Measure tool" title="Measure: click two points on the chart to see the change between them">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="6.5" y1="17.5" x2="17.5" y2="6.5" stroke-dasharray="2.5 2.5"/><circle cx="6" cy="18" r="1.8" fill="currentColor" stroke="none"/><circle cx="18" cy="6" r="1.8" fill="currentColor" stroke="none"/></svg>
+      <button type="button" class="btn icon tool" id="measure-btn" aria-pressed="false" aria-label="Measure tool" title="Measure: click two points on the chart to see the change between them">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="6.5" y1="17.5" x2="17.5" y2="6.5" stroke-dasharray="2.5 2.5"/><circle cx="6" cy="18" r="1.8" fill="currentColor" stroke="none"/><circle cx="18" cy="6" r="1.8" fill="currentColor" stroke="none"/></svg><span class="cap">Measure</span>
+      </button>
+      <button type="button" class="btn icon tool" id="trend-btn" aria-pressed="false" aria-label="Trendline tool" title="Trendline: click two points to draw a line, click it again to delete">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="18" x2="18" y2="6"/><circle cx="6" cy="18" r="1.8" fill="currentColor" stroke="none"/><circle cx="18" cy="6" r="1.8" fill="currentColor" stroke="none"/></svg><span class="cap">Trendline</span>
+      </button>
+      <button type="button" class="btn icon tool" id="hline-btn" aria-pressed="false" aria-label="Horizontal line tool" title="Horizontal line: click a price to draw a line across the chart">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="12" x2="20" y2="12"/><circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none"/></svg><span class="cap">H-Line</span>
+      </button>
+      <button type="button" class="btn icon tool" id="draw-clear-btn" aria-label="Clear all drawings" title="Clear all drawings on this chart">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg><span class="cap">Clear</span>
       </button>
 
       <span class="sep"></span>
@@ -81,20 +90,30 @@
 
       <span class="spacer"></span>
 
+      <div class="seg" id="feed-seg" role="group" aria-label="Commodity price source" hidden>
+        <button type="button" data-feed="binance" aria-pressed="true" title="Binance perpetual futures: real-time, trades around the clock">Binance · live</button>
+        <button type="button" data-feed="yahoo" aria-pressed="false" title="Yahoo's CME futures feed: about 10 minutes behind">Yahoo · 10 min late</button>
+      </div>
       <label class="toggle" id="futures-toggle" style="--dot:#4c8dff" title="Switch between the index and its futures contract"><input type="checkbox" id="futures"><span>Futures</span></label>
-      <button type="button" class="btn" id="movers-btn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l5-5 4 4 8-8M14 8h6v6"/></svg>
-        <span class="label">Top Movers</span>
-      </button>
-      <button type="button" class="btn" id="options-btn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+      <button type="button" class="btn tool" id="fno-btn" title="Futures and option chain for the symbol on the chart (NSE)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20V11M11 20V5M17 20v-6M3 20h18"/></svg>
         <span class="label">Options</span>
       </button>
-      <button type="button" class="btn icon" id="theme-toggle" aria-label="Toggle light/dark theme" title="Toggle light/dark theme">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/><circle cx="12" cy="12" r="4"/></svg>
+      <button type="button" class="btn icon tool" id="news-btn" aria-pressed="true" aria-label="Toggle news panel" title="News for the symbol on the chart">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5h11a1 1 0 0 1 1 1v13H6a1 1 0 0 1-1-1V5zM17 9h2a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-2M8 9h6M8 12h6M8 15h4"/></svg><span class="cap">News</span>
       </button>
-      <button type="button" class="btn icon" id="refresh" aria-label="Refresh data" title="Refresh data">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg>
+      <button type="button" class="btn icon tool" id="export-btn" aria-label="Download data" title="Download OHLCV data or schedule an end-of-day export">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg><span class="cap">Download</span>
+      </button>
+      <button type="button" class="btn icon tool" id="theme-toggle" aria-label="Toggle light/dark theme" title="Toggle light/dark theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/><circle cx="12" cy="12" r="4"/></svg><span class="cap">Theme</span>
+      </button>
+      <button type="button" class="btn icon tool" id="refresh" aria-label="Refresh data" title="Refresh data">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg><span class="cap">Refresh</span>
+      </button>
+      <button type="button" class="btn tool" id="movers-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l5-5 4 4 8-8M14 8h6v6"/></svg>
+        <span class="label">Top Movers</span>
       </button>
     </header>
 
@@ -103,6 +122,7 @@
       <div class="legend" id="legend" aria-live="off"></div>
       <div id="day-lines" aria-hidden="true"></div>
       <div id="measure-overlay" aria-hidden="true"></div>
+      <div id="draw-overlay" aria-hidden="true"></div>
       <div id="chart"></div>
       <div class="chart-state" id="chart-state" role="status">
         <h2 id="chart-state-title"></h2>
@@ -129,19 +149,14 @@
       <span id="clock" aria-label="Current time in India Standard Time"></span>
     </footer>
   </div>
-</div>
 
-<div class="backdrop" id="options-modal">
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="options-title">
-    <div class="modal-head">
-      <h2 id="options-title">Options</h2>
-      <select id="expiry-select" class="select" aria-label="Expiry date" hidden></select>
-      <button type="button" class="btn icon" id="options-close" aria-label="Close options">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
-      </button>
+  <aside class="news" id="news" aria-label="News for the current symbol">
+    <div class="news-head">
+      <h2 id="news-title">News</h2>
+      <span class="news-updated" id="news-updated"></span>
     </div>
-    <div class="modal-body" id="options-body"></div>
-  </div>
+    <div class="news-list" id="news-list" aria-live="off"></div>
+  </aside>
 </div>
 
 <div class="backdrop" id="move-modal">
@@ -161,7 +176,7 @@
 <div class="backdrop" id="feed-modal">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="feed-title">
     <div class="modal-head">
-      <h2 id="feed-title">Call Auction · live feed</h2>
+      <h2 id="feed-title">Closing Auction · live feed</h2>
       <span class="feed-pill" id="feed-pill" data-live="false">—</span>
       <div class="seg" id="feed-universe" role="group" aria-label="Universe">
         <button type="button" data-key="FO" aria-pressed="true">F&amp;O</button>
@@ -189,6 +204,10 @@
         <button type="button" data-universe="DOWJONES" aria-pressed="false">Dow</button>
         <button type="button" data-universe="SPX" aria-pressed="false">S&amp;P 500</button>
         <button type="button" data-universe="CHINA" aria-pressed="false">CSI 300</button>
+        <button type="button" data-universe="NASDAQ" aria-pressed="false" title="Nasdaq-100 stocks">Nasdaq-100</button>
+        <button type="button" data-universe="KOSPI" aria-pressed="false" title="KOSPI 200 stocks">KOSPI</button>
+        <button type="button" data-universe="TAIEX" aria-pressed="false" title="All TWSE stocks, last finished session">TAIEX</button>
+        <button type="button" data-universe="SSE" aria-pressed="false" title="Shanghai A-shares">Shanghai</button>
       </div>
       <span id="movers-asof" class="feed-pill" data-live="false">—</span>
       <button type="button" class="btn icon" id="movers-close" aria-label="Close top movers">
@@ -196,6 +215,98 @@
       </button>
     </div>
     <div class="modal-body" id="movers-body"></div>
+  </div>
+</div>
+
+<div class="backdrop" id="export-modal">
+  <div class="modal export-modal" role="dialog" aria-modal="true" aria-labelledby="export-title">
+    <div class="modal-head">
+      <h2 id="export-title">Download data</h2>
+      <button type="button" class="btn icon" id="export-close" aria-label="Close download dialog">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body export-body">
+      <section class="export-sec" aria-labelledby="export-now-h">
+        <h3 id="export-now-h">Download now</h3>
+        <div class="export-grid">
+          <label for="export-universe">What</label>
+          <select id="export-universe" class="select"></select>
+
+          <label for="export-interval">Bar size</label>
+          <div>
+            <select id="export-interval" class="select"></select>
+            <p class="export-hint" id="export-avail"></p>
+          </div>
+
+          <span class="export-label" id="export-range-l">Range</span>
+          <div class="export-range" role="radiogroup" aria-labelledby="export-range-l">
+            <label><input type="radio" name="export-mode" value="day" checked> One day <input type="date" id="export-day"></label>
+            <label><input type="radio" name="export-mode" value="range"> From <input type="date" id="export-from"> to <input type="date" id="export-to"></label>
+            <label><input type="radio" name="export-mode" value="all"> <span id="export-all-label">Entire available history</span></label>
+          </div>
+
+          <label for="export-format">Format</label>
+          <select id="export-format" class="select"></select>
+        </div>
+        <div class="export-actions">
+          <button type="button" class="btn" id="export-download">Download</button>
+          <span class="export-status" id="export-status" role="status"></span>
+        </div>
+        <p class="export-hint">Several symbols arrive as one .zip with a file per symbol. Index volume is the sum of its constituents.</p>
+      </section>
+
+      <section class="export-sec" aria-labelledby="export-sched-h">
+        <h3 id="export-sched-h">Automatic end-of-day export</h3>
+        <div class="export-grid">
+          <label for="export-sched-on">Enabled</label>
+          <input type="checkbox" id="export-sched-on">
+
+          <label for="export-sched-time">Run at (IST, weekdays)</label>
+          <input type="time" id="export-sched-time" value="15:31">
+
+          <label for="export-sched-universe">What</label>
+          <select id="export-sched-universe" class="select"></select>
+
+          <label for="export-sched-interval">Bar size</label>
+          <select id="export-sched-interval" class="select"></select>
+
+          <label for="export-sched-format">Format</label>
+          <select id="export-sched-format" class="select"></select>
+
+          <label for="export-sched-path">Save to folder</label>
+          <input type="text" id="export-sched-path" class="feed-filter" placeholder="C:\Data\orazio" spellcheck="false" autocomplete="off">
+        </div>
+        <div class="export-actions">
+          <button type="button" class="btn" id="export-sched-save">Save schedule</button>
+          <button type="button" class="btn" id="export-sched-run">Run now</button>
+          <span class="export-status" id="export-sched-status" role="status"></span>
+        </div>
+        <p class="export-hint">Files land in <code>&lt;folder&gt;/&lt;date&gt;/&lt;SYMBOL&gt;_&lt;bar&gt;.&lt;format&gt;</code> on the machine running Orazio. Orazio must be running at that time — if it isn't, the export runs as soon as it starts that day. NSE's closing auction runs to about 15:35, so bars after that arrive late.</p>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div class="backdrop" id="fno-modal">
+  <div class="modal fno-modal" role="dialog" aria-modal="true" aria-labelledby="fno-title">
+    <div class="modal-head">
+      <h2 id="fno-title">Options</h2>
+      <div class="seg" id="fno-tabs" role="group" aria-label="Options view">
+        <button type="button" data-tab="fut" aria-pressed="true">Futures</button>
+        <button type="button" data-tab="chain" aria-pressed="false">Option chain</button>
+      </div>
+      <select id="fno-expiry" class="select" aria-label="Option expiry" hidden></select>
+      <select id="fno-window" class="select" aria-label="Strikes shown" hidden>
+        <option value="8">±8 strikes</option><option value="15">±15 strikes</option><option value="all">All strikes</option>
+      </select>
+      <span class="feed-pill" id="fno-asof" data-live="false">—</span>
+      <button type="button" class="btn icon" id="fno-close" aria-label="Close Options panel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="feed-strip" id="fno-strip"></div>
+    <div class="modal-body" id="fno-body"></div>
   </div>
 </div>
 

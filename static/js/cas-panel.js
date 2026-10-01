@@ -1,4 +1,4 @@
-// Left-rail Call Auction Session summary panel: countdown + per-index open/close numbers.
+// Left-rail Closing Auction Session summary panel: countdown + per-index open/close numbers.
 import { $, esc } from './state.js';
 
 let casPhase = null, casSeconds = null, casPollAt = 0, casStatus = '', casStage = '';
@@ -13,16 +13,20 @@ export function fmtCountdown(sec) {
 
 export const CAS_PHASE_NAME = { 'pre-open': 'Pre-open', 'closing-auction': 'Closing auction', 'post-market': 'Post-market', 'post-close': 'Post-close', 'auction': 'Auction' };
 
+// Measured 1 Oct 2026: NSE's public auction feed updates every ~54 s, all stocks at once.
+const CAS_FEED_NOTE = 'NSE publishes auction data about every 54 s; the numbers cannot tick faster from public data';
+
 function renderCasPhase() {
   const el = $('cas-phase');
   const live = casPhase in CAS_PHASE_NAME;
   el.dataset.live = String(live);
   // NSE's own wording, so a session our clock windows don't know about is still named right.
-  el.title = [casStage, casStatus].filter(Boolean).join(' · ');
+  el.title = [casStage, casStatus, live ? CAS_FEED_NOTE : ''].filter(Boolean).join(' · ');
   if (live) {
     const name = CAS_PHASE_NAME[casPhase];
     el.textContent = casSeconds === null || casSeconds === undefined
       ? `${name} · running` : `${name} · ${fmtCountdown(casSeconds)} left`;
+    el.textContent += ' · refreshes ~54s';
   } else if (casSeconds !== null && casSeconds !== undefined) {
     const next = CAS_PHASE_NAME[(casPhase || '').split(':')[1]] || 'Pre-open';
     el.textContent = `${next} in ${fmtCountdown(casSeconds)}`;

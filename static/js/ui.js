@@ -26,7 +26,7 @@ export function setConn(connState, text, title = '') {
 
 // Be honest about how old the data is: some feeds are delayed by their provider (SENSEX on
 // Yahoo ~15 min, CME futures ~10 min) and that must read as "delayed", not as a broken app.
-const SOURCE_LABEL = { yahoo: 'Yahoo Finance', bse: 'BSE India', nse: 'NSE India', yfinance: 'Yahoo Finance (fallback)' };
+const SOURCE_LABEL = { yahoo: 'Yahoo Finance', bse: 'BSE India', nse: 'NSE India', 'nse-fno': 'NSE F&O', 'nse-gift': 'NSE (GIFT Nifty)', binance: 'Binance perpetual (24h change)', 'yahoo-cme': 'Yahoo CME futures (~10 min delayed)', yfinance: 'Yahoo Finance (fallback)' };
 export function showFreshness(q) {
   const age = q.delaySec;
   const via = SOURCE_LABEL[q.source] || q.source;

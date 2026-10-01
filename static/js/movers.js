@@ -1,5 +1,8 @@
 // Top Gainers/Losers modal. Same open/poll/close pattern as cas-feed.js.
+import { loadCandles } from './data.js';
+import { switchSymbol } from './symbol.js';
 import { $, esc } from './state.js';
+import { setIntervalUI } from './ui.js';
 
 const moversModal = $('movers-modal');
 let moversUniverse = 'allSec';
@@ -25,7 +28,9 @@ function moversTable(title, rows) {
   if (!rows.length) return `<div><h3>${title}</h3><div class="empty-note">No data.</div></div>`;
   const body = rows.map(r => {
     const cls = r.perChange === null || r.perChange === undefined ? '' : r.perChange >= 0 ? 'up' : 'down';
-    return `<tr><td class="l"><strong>${esc(r.symbol)}</strong></td><td>${r.ltp ?? '–'}</td>
+    const clickable = r.chartSymbol ? ' class="mover-row" tabindex="0" role="button"' : '';
+    const title = r.chartSymbol ? ` title="Open ${esc(r.symbol)} at 1m"` : '';
+    return `<tr${clickable}${title} data-chart-symbol="${esc(r.chartSymbol || '')}"><td class="l"><strong>${esc(r.symbol)}</strong>${r.name || r.localName ? `<div class="mv-name">${esc(r.name || '')}${r.localName ? ` <span class="mv-local">${esc(r.localName)}</span>` : ''}</div>` : ''}</td><td>${r.ltp ?? '–'}</td>
       <td class="${cls}">${r.perChange === null || r.perChange === undefined ? '–' : (r.perChange >= 0 ? '+' : '') + r.perChange.toFixed(2) + '%'}</td>
       <td>${r.volume ? nfmt.format(r.volume) : '–'}</td></tr>`;
   }).join('');
@@ -45,13 +50,30 @@ async function loadMovers() {
   }
   const pill = $('movers-asof');
   pill.dataset.live = String(d.available);
-  pill.textContent = d.available ? 'Live' : 'Unavailable';
+  pill.textContent = d.available ? (d.asOf ? `As of ${d.asOf}` : 'Live') : 'Unavailable';
   if (!d.available) {
     $('movers-body').innerHTML = '<div class="empty-note">No mover data for this universe right now.</div>';
     return;
   }
   $('movers-body').innerHTML = `<div class="opt-grid">${moversTable('Gainers', d.gainers)}${moversTable('Losers', d.losers)}</div>`;
 }
+
+function openMoverChart(symbol) {
+  closeMovers();
+  $('symbol-input').value = symbol; // switchSymbol() itself doesn't touch the search box
+  switchSymbol(symbol);
+  setIntervalUI('1m');
+  loadCandles({ interval: '1m', range: '1D' });
+}
+$('movers-body').addEventListener('click', (e) => {
+  const row = e.target.closest('tr[data-chart-symbol]');
+  if (row?.dataset.chartSymbol) openMoverChart(row.dataset.chartSymbol);
+});
+$('movers-body').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const row = e.target.closest('tr[data-chart-symbol]');
+  if (row?.dataset.chartSymbol) { e.preventDefault(); openMoverChart(row.dataset.chartSymbol); }
+});
 
 $('movers-btn').addEventListener('click', openMovers);
 $('movers-close').addEventListener('click', closeMovers);
@@ -62,5 +84,7 @@ $('movers-universe').addEventListener('click', (e) => {
   if (!btn) return;
   moversUniverse = btn.dataset.universe;
   document.querySelectorAll('#movers-universe button').forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
+  $('movers-asof').textContent = '—';
+  $('movers-body').innerHTML = '<div class="empty-note">Loading…</div>';
   loadMovers();
 });

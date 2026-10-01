@@ -17,8 +17,12 @@ UNIVERSES = ("allSec", "NIFTY", "BANKNIFTY")
 
 
 def _mover_row(r):
+    symbol = r.get("symbol")
     return {
-        "symbol": r.get("symbol"),
+        "symbol": symbol,
+        # ".NS" makes this the same Yahoo ticker /api/candles already accepts — every
+        # universe here is NSE-sourced, so this suffix is always correct.
+        "chartSymbol": f"{symbol}.NS" if symbol else None,
         "ltp": r.get("ltp"),
         "perChange": r.get("perChange"),
         "open": r.get("open_price"),

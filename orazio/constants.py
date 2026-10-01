@@ -22,14 +22,23 @@ SYMBOL_ALIASES = {
     "TAIEX": "^TWII",
     "CHINA": "000300.SS",  # CSI 300 — mainland China's main broad-market index
     "SSE": "000001.SS",    # Shanghai Composite — kept alongside CSI 300, not instead of it
+    # Commodities: front-month futures (Yahoo delays these ~10 min, like the index futures below).
+    "CRUDE": "CL=F", "BRENT": "BZ=F", "GOLD": "GC=F", "SILVER": "SI=F", "NATGAS": "NG=F", "COPPER": "HG=F",
+    # Crypto trades 24/7 and Yahoo's quotes for it are live.
+    "BTC": "BTC-USD", "ETH": "ETH-USD", "BNB": "BNB-USD", "SOL": "SOL-USD", "XRP": "XRP-USD", "DOGE": "DOGE-USD",
 }
 
 # Left-rail quick-access list: (display label, alias to send to the API).
 QUICK_INDICES = [
-    ("NIFTY", "NIFTY"), ("BANKNIFTY", "BANKNIFTY"), ("NIFTYIT", "NIFTYIT"),
-    ("SENSEX", "SENSEX"), ("SPX", "SPX"), ("NASDAQ", "NASDAQ"), ("DOWJONES", "DOWJONES"),
+    ("NIFTY", "NIFTY"), ("SENSEX", "SENSEX"), ("NIFTYIT", "NIFTYIT"), ("BANKNIFTY", "BANKNIFTY"), ("GIFTNIFTY", "GIFTNIFTY"),
+    ("SPX", "SPX"), ("NASDAQ", "NASDAQ"), ("DOWJONES", "DOWJONES"),
+    ("CRUDE", "CRUDE"), ("BRENT", "BRENT"), ("GOLD", "GOLD"), ("SILVER", "SILVER"), ("NATGAS", "NATGAS"), ("COPPER", "COPPER"),
     ("KOSPI", "KOSPI"), ("TAIEX", "TAIEX"), ("CHINA", "CHINA"), ("SSE", "SSE"),
+    ("BTC", "BTC"), ("ETH", "ETH"), ("BNB", "BNB"), ("SOL", "SOL"), ("XRP", "XRP"), ("DOGE", "DOGE"),
 ]
+
+# Commodities and crypto have no opening/closing auction, so the CAS panel ignores them.
+NO_AUCTION_ALIASES = {"GIFTNIFTY", "CRUDE", "BRENT", "GOLD", "SILVER", "NATGAS", "COPPER", "BTC", "ETH", "BNB", "SOL", "XRP", "DOGE"}
 
 # Cash <-> futures ticker map. Only populated for indices where yfinance actually
 # carries a futures contract (verified live) — NSE indices have none, so they're
@@ -83,7 +92,7 @@ NSE_INDEX_NAMES = {"NIFTY": "NIFTY 50", "BANKNIFTY": "NIFTY BANK", "NIFTYIT": "N
 YAHOO_INDEX_SYMBOL = {"NIFTY": "^NSEI", "BANKNIFTY": "^NSEBANK", "NIFTYIT": "^CNXIT"}
 
 # ---------------------------------------------------------------------------
-# Call Auction Session (CAS).
+# Closing Auction Session (CAS).
 #   Pre-open  09:00-09:15 IST: orders collected 09:00-09:08, matched 09:08-09:12.
 #     Price discovery is real here, and NSE publishes each stock's IEP (indicative
 #     equilibrium price). The index level it implies shows up as that index's `open`.
@@ -128,3 +137,11 @@ CAS_SESSIONS = [
 CAS_REFERENCE_AT = (15, 14, 59)
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36"
+
+# Faster/free public sources for indices Yahoo serves stale or not at all (see
+# market_data.py's sina_index_quote/naver_index_quote/twse_index_quote) — same
+# "not an official API, but the exchange/portal's own site calls it" category as
+# NSE/BSE above. Yahoo ticker -> that provider's own symbol code.
+SINA_INDEX_CODE = {"000300.SS": "s_sh000300", "000001.SS": "s_sh000001"}
+NAVER_INDEX_CODE = {"^KS11": "KOSPI"}
+TWSE_INDEX_CODE = {"^TWII": "tse_t00.tw"}

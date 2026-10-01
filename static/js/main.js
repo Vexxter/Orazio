@@ -1,7 +1,10 @@
 // Boot sequence and the toolbar/footer controls that don't belong to any one feature.
 import { applyStyle, priceSeriesByStyle, renderIndicators } from './chart.js';
 import { loadCandles, pollQuote } from './data.js';
+import { streamHealthy } from './live-quote.js';
 import { loadPrefs, savePrefs } from './prefs.js';
+import { shouldAutoRefresh } from './refresh-policy.js';
+import { shouldPoll } from './stream-policy.js';
 import { loadCas } from './cas-panel.js';
 import { loadBreadth, loadConfig } from './rail.js';
 import { applyTheme } from './theme.js';
@@ -11,11 +14,16 @@ import { setIntervalUI } from './ui.js';
 // Side-effect-only modules: each wires its own DOM listeners on import.
 import './symbol.js';
 import './futures.js';
-import './options.js';
 import './cas-feed.js';
 import './cas-movement.js';
 import './measure.js';
+import './draw.js';
 import './movers.js';
+import './stats.js';
+import './export.js';
+import './news.js';
+import './symbol-name.js';
+import './fno.js';
 
 $('chart-state-retry').addEventListener('click', () => loadCandles());
 
@@ -52,8 +60,11 @@ loadConfig();
 loadCas();
 loadCandles();
 pollQuote();
-setInterval(() => { if (state.quotesInFlight === 0) pollQuote(); }, 2000);
-setInterval(() => loadCandles({ preserveView: true }), 60000);
+// Quotes normally arrive over the live stream (live-quote.js); polling only runs while it is down.
+setInterval(() => { if (shouldPoll({ streamHealthy: streamHealthy(), quotesInFlight: state.quotesInFlight })) pollQuote(); }, 2000);
+setInterval(() => {
+  if (shouldAutoRefresh({ isLoading: $('chart-wrap').classList.contains('is-loading'), tabHidden: document.hidden })) loadCandles({ preserveView: true });
+}, 60000);
 setInterval(loadBreadth, 5000);
 
 $('theme-toggle').addEventListener('click', () => {

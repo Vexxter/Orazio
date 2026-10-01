@@ -4,7 +4,7 @@ from pathlib import Path
 from flask import Flask
 from flask_cors import CORS
 
-from . import cas
+from . import cas, live_volume
 from .config import settings
 from .routes import bp
 
@@ -19,5 +19,6 @@ def create_app():
     # The reference price and live-index series live in memory; restore anything
     # persisted from an earlier run of this process before serving any request.
     cas.load_seed()
+    live_volume.load_seed()
 
     return app

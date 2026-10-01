@@ -14,7 +14,7 @@ export const istHms = new Intl.DateTimeFormat('en-GB', { timeZone: IST, hour: '2
 export const INTERVAL_LABEL = { '1m': '1m', '5m': '5m', '15m': '15m', '1h': '1h', '1d': '1D' };
 export const INTERVAL_SECONDS = { '1m': 60, '5m': 300, '15m': 900, '1h': 3600 };
 
-export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+export { esc } from './format.js';
 
 export function dayKey(t) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: IST, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(t * 1000));
@@ -62,7 +62,7 @@ export const state = {
   historyOldestTime: null,
   historyExhausted: false,
   loadingHistory: false,
-  CONFIG: { quickIndices: [], futuresMap: {}, futuresMeta: {} },
+  CONFIG: { quickIndices: [], futuresMap: {}, futuresMeta: {}, commodities: [] },
   dayBoundaryTimes: new Set(),
   // Guards the history-prefetch listener against firing on range changes WE caused
   // (setData/fitContent/setVisibleRange), not the user.
@@ -78,6 +78,18 @@ export const state = {
   // Line/Area series color follows the session's direction (current price vs. previous
   // close), not a fixed accent color. null = not known yet (no quote polled for this symbol).
   lineAreaUp: null,
+  // Session-level NSE stats for the legend (volume, value, 52W range, 30D change), tagged
+  // with the symbol they belong to so a slow response can't show up under another chart.
+  stats: null,
+  // Company name of the current symbol ({ symbol, name }), for tickers that are only numbers.
+  symbolName: null,
+  // NSE stocks that have F&O contracts (NIFTY/BANKNIFTY are handled separately) — drives the spot/futures toggle.
+  fnoStocks: new Set(),
+  // Where the bars on screen came from ('binance' or null = the default Yahoo path), and whether the
+  // live quote may be painted onto the newest candle (see refresh-policy.js shouldFoldLiveTick).
+  candleSource: null,
+  commodityFeed: 'binance',     // which source the user picked for commodities: 'binance' (live) or 'yahoo' (CME, ~10 min late)
+  liveFold: true,
 };
 
 export function unsuppressSoon() {

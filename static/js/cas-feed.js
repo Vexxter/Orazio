@@ -1,4 +1,4 @@
-// Call auction: live feed window (stock-by-stock, with per-symbol order books).
+// Closing auction (CAS): live feed window (stock-by-stock, with per-symbol order books).
 // NSE keeps serving the last window's snapshot after pre-open closes, so every view
 // states whether it is live or a snapshot and when it was stamped.
 import { fmtCountdown } from './cas-panel.js';

@@ -163,12 +163,12 @@ button { cursor: pointer; }
 /* ---------- chart ---------- */
 .chart-wrap { position: relative; flex: 1; min-height: 0; background: var(--bg-1); }
 #chart { position: absolute; inset: 0; }
-#day-lines { position: absolute; inset: 0; z-index: 3; pointer-events: none; overflow: hidden; }
+#day-lines { position: absolute; inset: 0 0 0 var(--pane-left, 0px); z-index: 3; pointer-events: none; overflow: hidden; }
 .day-line { position: absolute; top: 0; bottom: var(--axis-h, 26px); width: 0; border-left: 1px dotted rgba(152, 162, 179, .45); }
 
 /* ---------- measure tool ---------- */
 #measure-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
-#measure-overlay { position: absolute; inset: 0; z-index: 4; pointer-events: none; overflow: hidden; }
+#measure-overlay { position: absolute; inset: 0 0 0 var(--pane-left, 0px); z-index: 4; pointer-events: none; overflow: hidden; }
 .measure-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .measure-line-el { stroke: var(--text); stroke-width: 1.5; stroke-dasharray: 4 3; }
 .measure-dot, .measure-svg { pointer-events: none; }
@@ -180,6 +180,30 @@ button { cursor: pointer; }
 }
 .measure-label.up { color: var(--up); }
 .measure-label.down { color: var(--down); }
+
+/* ---------- trendline / horizontal-line drawing tools ---------- */
+#trend-btn[aria-pressed="true"], #hline-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+#draw-overlay { position: absolute; inset: 0 0 0 var(--pane-left, 0px); z-index: 4; pointer-events: none; overflow: hidden; }
+.draw-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.trend-line-el { stroke: var(--accent); stroke-width: 1.5; }
+.draw-dot { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: var(--accent); border: 2px solid var(--bg-1); }
+
+/* Delete buttons stay invisible until the pointer is right over them — a permanently
+   visible × on every line would clutter a chart with more than a couple of drawings. */
+.draw-handle { position: absolute; width: 22px; height: 22px; margin: -11px 0 0 -11px; pointer-events: auto; display: flex; align-items: center; justify-content: center; }
+.hline-row { position: absolute; left: 0; right: 0; height: 0; pointer-events: none; }
+.hline-el { position: absolute; left: 0; right: 40px; top: 0; border-top: 1px solid var(--accent); pointer-events: none; }
+/* Invisible 9px tall hit area straddling the 1px line, so hovering near it — not just
+   landing exactly on it — reveals the delete button. */
+.hline-hit { position: absolute; left: 0; right: 40px; top: -4px; height: 9px; pointer-events: auto; }
+.draw-del {
+  width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--line-strong); background: var(--bg-3);
+  color: var(--text-dim); font: 12px var(--mono); line-height: 1; cursor: pointer; opacity: 0; transition: opacity .1s;
+  pointer-events: auto;
+}
+.draw-handle:hover .draw-del, .draw-handle .draw-del:focus-visible { opacity: 1; }
+.hline-del { position: absolute; right: 8px; top: -9px; opacity: 0; }
+.hline-row:hover .hline-del, .hline-del:focus-visible { opacity: 1; }
 
 .legend { position: absolute; top: var(--s3); left: var(--s3); z-index: 5; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px var(--s3); max-width: calc(100% - 120px); pointer-events: none; font-size: 12px; }
 .legend .lg-sym { font-weight: 650; font-size: 13px; }
@@ -258,9 +282,8 @@ button { cursor: pointer; }
 .rail, .statusbar, .results, .modal-body { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
 
 /* keep the toolbar on one row: icon-only Options button below ~1500px */
-@media (max-width: 1500px) and (min-width: 821px) { #options-btn .label { display: none; } #options-btn { width: 32px; padding: 0; justify-content: center; } }
 
-/* ---------- call auction session ---------- */
+/* ---------- closing auction session (CAS) ---------- */
 .cas { margin-top: auto; border-top: 1px solid var(--line); background: var(--bg-0); }
 .cas-head { display: grid; grid-template-columns: 1fr auto; gap: 1px var(--s2); width: 100%; padding: var(--s2) var(--s3); background: none; border: 0; text-align: left; }
 .cas-head:hover { background: var(--bg-2); }
@@ -282,7 +305,7 @@ button { cursor: pointer; }
 .cas-note { margin: var(--s1) 0 0; padding: 0 var(--s2); font-size: 10.5px; line-height: 1.35; color: var(--text-faint); }
 @media (max-width: 820px) { .cas { display: none; } }
 
-/* ---------- call auction: live feed ---------- */
+/* ---------- closing auction (CAS): live feed ---------- */
 .cas-open { width: calc(100% - var(--s4)); margin: var(--s2) var(--s2) 0; padding: 5px var(--s2); background: var(--bg-2); border: 1px solid var(--line-strong); border-radius: var(--r1); color: var(--text-dim); font-size: 11px; }
 .cas-open:hover { background: var(--bg-3); color: var(--text); }
 .feed-pill { padding: 2px 8px; border-radius: 999px; background: var(--bg-2); color: var(--text-dim); font-size: 11px; white-space: nowrap; }
@@ -297,6 +320,8 @@ button { cursor: pointer; }
 .feed-row { cursor: pointer; }
 .feed-row:hover > td { background: var(--bg-2); }
 .feed-row.open > td { background: var(--bg-3); }
+.mover-row { cursor: pointer; }
+.mover-row:hover > td, .mover-row:focus-visible > td { background: var(--bg-2); }
 .ladder-row > td { padding: var(--s3) var(--s4) !important; background: var(--bg-0); }
 .ladder { display: flex; flex-direction: column; gap: 2px; }
 .rung { display: grid; grid-template-columns: 1fr 110px 1fr; align-items: center; gap: var(--s2); font: 11px var(--mono); }
@@ -341,3 +366,77 @@ button { cursor: pointer; }
   .move-grid { grid-template-columns: 1fr; grid-template-rows: none; height: auto; }
   .quad { min-height: 340px; }
 }
+
+/* ---------- download / export dialog ---------- */
+.export-modal { width: min(640px, 94vw); }
+.export-body { display: flex; flex-direction: column; gap: var(--s5); }
+.export-sec h3 { margin: 0 0 var(--s3); font-size: 13px; color: var(--text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.export-grid { display: grid; grid-template-columns: 160px 1fr; gap: var(--s3) var(--s4); align-items: start; }
+.export-grid > label, .export-label { padding-top: 6px; color: var(--text-dim); }
+.export-grid input[type="checkbox"] { justify-self: start; margin-top: 8px; }
+.export-grid input[type="date"], .export-grid input[type="time"], .export-grid input[type="text"] {
+  height: 28px; padding: 0 var(--s2); background: var(--bg-2); color: var(--text); border: 1px solid var(--line-strong); border-radius: var(--r1); font: inherit; color-scheme: inherit;
+}
+.export-grid input[type="text"] { width: 100%; }
+.export-range { display: flex; flex-direction: column; gap: var(--s2); }
+.export-range label { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
+.export-hint { margin: var(--s2) 0 0; font-size: 12px; color: var(--text-faint); }
+.export-hint code { font-family: var(--mono); }
+.export-actions { display: flex; align-items: center; gap: var(--s3); margin-top: var(--s4); }
+.export-status { font-size: 12px; color: var(--text-dim); }
+.export-status.err { color: var(--down); }
+.export-status.ok { color: var(--up); }
+@media (max-width: 560px) { .export-grid { grid-template-columns: 1fr; } }
+.export-actions .btn { white-space: nowrap; }
+
+/* ---------- news panel ---------- */
+.news { width: 320px; flex: none; display: flex; flex-direction: column; background: var(--bg-0); border-left: 1px solid var(--line); min-height: 0; }
+.news[hidden] { display: none; }
+.news-head { display: flex; align-items: baseline; gap: var(--s2); padding: var(--s3) var(--s3) var(--s2); border-bottom: 1px solid var(--line); }
+.news-head h2 { margin: 0; font-size: 13px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.news-updated { font-size: 11px; color: var(--text-faint); white-space: nowrap; }
+.news-list { flex: 1; overflow-y: auto; padding: var(--s1) 0; }
+.news-item { display: block; padding: var(--s2) var(--s3); border-bottom: 1px solid var(--line); color: var(--text); text-decoration: none; }
+.news-item:hover, .news-item:focus-visible { background: var(--bg-2); outline: 0; }
+.news-item.is-new { box-shadow: inset 2px 0 0 var(--accent); }
+.news-title { font-size: 12.5px; line-height: 1.4; }
+.news-meta { margin-top: 3px; font-size: 11px; color: var(--text-faint); }
+.news-empty { padding: var(--s5) var(--s3); text-align: center; color: var(--text-dim); font-size: 12px; }
+#news-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+@media (max-width: 1100px) { .news { display: none; } }
+
+/* ---------- toolbar buttons with a visible caption underneath ---------- */
+.btn.tool, .btn.icon.tool { flex-direction: column; justify-content: center; gap: 2px; height: 46px; min-width: 52px; width: auto; padding: 0 8px; }
+.btn.tool svg { width: 16px; height: 16px; }
+.btn.tool .cap, .btn.tool .label { display: block; font-size: 10px; line-height: 1; letter-spacing: .01em; color: var(--text-dim); white-space: nowrap; }
+.btn.tool:hover .cap, .btn.tool:hover .label, .btn.tool[aria-pressed="true"] .cap { color: var(--text); }
+
+.mv-name { margin-top: 1px; font: 400 11px var(--font); color: var(--text-dim); max-width: 34ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mv-local { color: var(--text-faint); }
+.legend .lg-name { color: var(--text-dim); font-size: 12px; }
+
+/* Top Movers has 11 universe tabs now — give the dialog room and never wrap a tab label. */
+#movers-modal .modal { width: min(1180px, 96vw); }
+#movers-modal .modal-head { flex-wrap: wrap; }
+#movers-modal h2, #movers-universe button { white-space: nowrap; }
+
+/* ---------- Options panel (NSE F&O) ---------- */
+.fno-modal { width: min(1180px, 96vw); }
+.fno-modal .modal-head { flex-wrap: wrap; }
+.fno-modal h2 { white-space: nowrap; }
+.fno-note { color: var(--text-faint); }
+.fno-tag { padding: 0 5px; border-radius: var(--r1); background: var(--accent-soft); color: var(--accent); font: 600 10px var(--font); text-transform: uppercase; }
+.fno-swap { height: 26px; font-size: 12px; }
+.fno-chain th.grp { text-align: center; letter-spacing: .08em; font-size: 11px; }
+.fno-chain th.grp.ce { color: var(--up); }
+.fno-chain th.grp.pe { color: var(--down); }
+.fno-chain td.strike, .fno-chain th.strike { text-align: center; background: var(--bg-2); }
+.fno-chain tr.atm td { box-shadow: inset 0 1px 0 var(--accent), inset 0 -1px 0 var(--accent); }
+.fno-chain tr.atm td.strike { background: var(--accent-soft); }
+/* OI cells carry a bar sized against the largest OI on screen: calls grow leftwards, puts rightwards. */
+.fno-chain td.oi.ce { background: linear-gradient(to left, var(--up-soft) var(--w), transparent var(--w)); }
+.fno-chain td.oi.pe { background: linear-gradient(to right, var(--down-soft) var(--w), transparent var(--w)); }
+
+/* commodity source switch: [hidden] must win over .seg's display */
+#feed-seg[hidden] { display: none; }
+#fno-tabs[hidden] { display: none; }

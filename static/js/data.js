@@ -2,6 +2,10 @@ import { applyLineAreaColor, areaSeries, barSeries, candleSeries, chart, compute
 import { $, COLORS, INTERVAL_LABEL, INTERVAL_SECONDS, displayName, state, unsuppressSoon } from './state.js';
 import { hideChartState, setConn, setIntervalUI, setLoading, setRangeUI, showChartState, showFreshness, toast } from './ui.js';
 import { updateFuturesToggle } from './futures.js';
+import { feedQuery } from './feed-policy.js';
+import { shouldFoldLiveTick } from './refresh-policy.js';
+
+export const currentFeedQuery = (symbol = state.currentSymbol) => feedQuery({ symbol, commodities: state.CONFIG.commodities, feed: state.commodityFeed });
 
 // ---------- data loading ----------
 // Aborting a superseded request (not just discarding its late response) matters
@@ -25,7 +29,7 @@ export async function loadCandles(opts = {}) {
 
   let payload;
   try {
-    const res = await fetch(`/api/candles?symbol=${encodeURIComponent(state.currentSymbol)}&interval=${requestedInterval}&range=${requestedRange}`, { signal: state.candlesAbortController.signal });
+    const res = await fetch(`/api/candles?symbol=${encodeURIComponent(state.currentSymbol)}&interval=${requestedInterval}&range=${requestedRange}${currentFeedQuery()}`, { signal: state.candlesAbortController.signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     payload = await res.json();
   } catch (e) {
@@ -58,6 +62,9 @@ export async function loadCandles(opts = {}) {
       if (olderHistory.length) state.latestCandles = [...olderHistory, ...state.latestCandles];
     }
   }
+  state.candleSource = payload.source || null;      // 'binance' when the bars come from there
+  state.liveFold = payload.liveFold !== false;
+  state.feedChoice = !!payload.feedChoice;
   state.currentInterval = payload.interval;
   state.currentRange = requestedRange;
   state.resolvedSymbol = payload.symbol;
@@ -66,9 +73,11 @@ export async function loadCandles(opts = {}) {
 
   setRangeUI(state.currentRange);
   setIntervalUI(payload.interval);
-  $('note').textContent = payload.interval !== requestedInterval
+  const intervalNote = payload.interval !== requestedInterval
     ? `${INTERVAL_LABEL[requestedInterval] || requestedInterval} bars aren't available for ${requestedRange} — showing ${INTERVAL_LABEL[payload.interval] || payload.interval}`
     : '';
+  const feedNote = payload.feed === 'yahoo' ? 'Yahoo CME futures feed — about 10 minutes behind; prices differ slightly from the Binance perpetual' : '';
+  $('note').textContent = [intervalNote, feedNote].filter(Boolean).join(' · ');
 
   syncStyleData();
   renderIndicators();
@@ -93,7 +102,7 @@ export async function loadMoreHistory() {
   state.suppressRangeEvents = true;
   const myGeneration = state.loadGeneration;
   try {
-    const res = await fetch(`/api/candles/history?symbol=${encodeURIComponent(state.resolvedSymbol)}&interval=${state.currentInterval}&before=${state.historyOldestTime}`);
+    const res = await fetch(`/api/candles/history?symbol=${encodeURIComponent(state.resolvedSymbol)}&interval=${state.currentInterval}&before=${state.historyOldestTime}${state.candleSource ? `&source=${state.candleSource}` : ''}`);
     if (!res.ok) return;
     const payload = await res.json();
     if (myGeneration !== state.loadGeneration) return; // a fresh loadCandles() superseded this — discard
@@ -127,6 +136,31 @@ chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
 });
 
 // ---------- live quotes ----------
+// Paints one quote onto the page: price, change chip, tab title, flash, freshness badge, live candle.
+// Used for both fetched quotes (pollQuote) and quotes pushed over the stream (live-quote.js).
+export function applyQuote(q) {
+  const priceEl = $('price');
+  const changeEl = $('change');
+  const up = q.change >= 0;
+  priceEl.textContent = q.price.toFixed(2);
+  changeEl.textContent = `${up ? '▲' : '▼'} ${up ? '+' : ''}${q.change.toFixed(2)} (${q.changePercent.toFixed(2)}%)`;
+  changeEl.className = `chip ${up ? 'up' : 'down'}`;
+  document.title = `${q.price.toFixed(2)} ${displayName(state.currentSymbol)} — Orazio`;
+  applyLineAreaColor(up);
+
+  if (state.lastPolledPrice !== null && q.price !== state.lastPolledPrice) {
+    const dir = q.price > state.lastPolledPrice ? 'flash-up' : 'flash-down';
+    priceEl.classList.remove('flash-up', 'flash-down');
+    priceEl.classList.add(dir);
+    clearTimeout(state.priceFlashTimer);
+    state.priceFlashTimer = setTimeout(() => priceEl.classList.remove(dir), 500);
+    state.tickChangedAt = q.time;
+  }
+  state.lastPolledPrice = q.price;
+  showFreshness(q);
+  foldTickIntoChart(q.price, q.time, q);
+}
+
 export async function pollQuote() {
   state.quotesInFlight++;
   // A quote fetch for the PRE-switch symbol can resolve after the user has already
@@ -134,30 +168,11 @@ export async function pollQuote() {
   // symbol's number and fold a wrong-symbol price into the current chart's last candle.
   const symbolAtRequest = state.currentSymbol;
   try {
-    const res = await fetch(`/api/quote?symbol=${encodeURIComponent(symbolAtRequest)}`);
+    const res = await fetch(`/api/quote?symbol=${encodeURIComponent(symbolAtRequest)}${currentFeedQuery(symbolAtRequest)}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const q = await res.json();
     if (symbolAtRequest !== state.currentSymbol) return;
-    const priceEl = $('price');
-    const changeEl = $('change');
-    const up = q.change >= 0;
-    priceEl.textContent = q.price.toFixed(2);
-    changeEl.textContent = `${up ? '▲' : '▼'} ${up ? '+' : ''}${q.change.toFixed(2)} (${q.changePercent.toFixed(2)}%)`;
-    changeEl.className = `chip ${up ? 'up' : 'down'}`;
-    document.title = `${q.price.toFixed(2)} ${displayName(state.currentSymbol)} — Orazio`;
-    applyLineAreaColor(up);
-
-    if (state.lastPolledPrice !== null && q.price !== state.lastPolledPrice) {
-      const dir = q.price > state.lastPolledPrice ? 'flash-up' : 'flash-down';
-      priceEl.classList.remove('flash-up', 'flash-down');
-      priceEl.classList.add(dir);
-      clearTimeout(state.priceFlashTimer);
-      state.priceFlashTimer = setTimeout(() => priceEl.classList.remove(dir), 500);
-      state.tickChangedAt = q.time;
-    }
-    state.lastPolledPrice = q.price;
-    showFreshness(q);
-    foldTickIntoChart(q.price, q.time, q);
+    applyQuote(q);
   } catch (e) { setConn('err'); }
   finally { state.quotesInFlight--; }
 }
@@ -178,7 +193,7 @@ function pushLiveBar(bar, isNew) {
 }
 
 function foldTickIntoChart(price, nowSec, q = {}) {
-  if (!state.latestCandles.length) return;
+  if (!state.latestCandles.length || !shouldFoldLiveTick({ liveFold: state.liveFold })) return;
   const last = state.latestCandles[state.latestCandles.length - 1];
   const step = INTERVAL_SECONDS[state.currentInterval];
   // A quote is "fresh" when the exchange tick itself is recent. That — not the age of

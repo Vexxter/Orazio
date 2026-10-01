@@ -1,0 +1,230 @@
+{
+  ".mcp.json": {
+    "mtime": 1789635837.1066902,
+    "seen": 1790075111.7621915,
+    "ast_hash": "5495520278b7d69d9688125275d3d7fb",
+    "semantic_hash": "5495520278b7d69d9688125275d3d7fb"
+  },
+  "app.py": {
+    "mtime": 1790052213.8010373,
+    "seen": 1790075111.7621946,
+    "ast_hash": "025b12f158db3f16a5b9fddfed6d876b",
+    "semantic_hash": "025b12f158db3f16a5b9fddfed6d876b"
+  },
+  "requirements.txt": {
+    "mtime": 1790052329.0006416,
+    "seen": 1790075111.7622125,
+    "ast_hash": "6ad86bfefdae7ff341fceb4d1329b3e1",
+    "semantic_hash": "6ad86bfefdae7ff341fceb4d1329b3e1"
+  },
+  "static/index.html": {
+    "mtime": 1790052752.666132,
+    "seen": 1790075111.7622132,
+    "ast_hash": "2d9c885f238e971db3266926b392890f",
+    "semantic_hash": "2d9c885f238e971db3266926b392890f"
+  },
+  "tasks/plan.md": {
+    "mtime": 1789974125.7780259,
+    "seen": 1790075111.762214,
+    "ast_hash": "8cb604e62b09913607c37dde9abde85b",
+    "semantic_hash": "8cb604e62b09913607c37dde9abde85b"
+  },
+  "tasks/spec.md": {
+    "mtime": 1789986963.8731115,
+    "seen": 1790075111.7622147,
+    "ast_hash": "602dc64c28d0625c5b9510616ac3928e",
+    "semantic_hash": "602dc64c28d0625c5b9510616ac3928e"
+  },
+  "tasks/todo.md": {
+    "mtime": 1789986963.8741126,
+    "seen": 1790075111.7622154,
+    "ast_hash": "e508c4c844f7a602045d673d80ec6e76",
+    "semantic_hash": "e508c4c844f7a602045d673d80ec6e76"
+  },
+  "orazio/__init__.py": {
+    "mtime": 1790052202.3866014,
+    "seen": 1790075111.7621963,
+    "ast_hash": "2d31f50cbd19de68ec4e8159340475ef",
+    "semantic_hash": "2d31f50cbd19de68ec4e8159340475ef"
+  },
+  "orazio/bse_stream.py": {
+    "mtime": 1790051959.6280851,
+    "seen": 1790075111.7621968,
+    "ast_hash": "a6e12af41fa8c07c13880dfc76244c38",
+    "semantic_hash": "a6e12af41fa8c07c13880dfc76244c38"
+  },
+  "orazio/cache.py": {
+    "mtime": 1790051936.575451,
+    "seen": 1790075111.7621975,
+    "ast_hash": "1bca75a8916949e008e9a705142185fb",
+    "semantic_hash": "1bca75a8916949e008e9a705142185fb"
+  },
+  "orazio/candles.py": {
+    "mtime": 1790051967.4286041,
+    "seen": 1790075111.762198,
+    "ast_hash": "8b282da6048338db92056d872ac96ba0",
+    "semantic_hash": "8b282da6048338db92056d872ac96ba0"
+  },
+  "orazio/cas.py": {
+    "mtime": 1790052176.5477333,
+    "seen": 1790075111.7621987,
+    "ast_hash": "31d0fed6fae08b6a6306f0a834ae1897",
+    "semantic_hash": "31d0fed6fae08b6a6306f0a834ae1897"
+  },
+  "orazio/config.py": {
+    "mtime": 1790051922.0204093,
+    "seen": 1790075111.7621994,
+    "ast_hash": "893dfe9e29555e7cedde3fecaa8bd611",
+    "semantic_hash": "893dfe9e29555e7cedde3fecaa8bd611"
+  },
+  "orazio/constants.py": {
+    "mtime": 1790051915.7991402,
+    "seen": 1790075111.7621999,
+    "ast_hash": "3c1247bdae0ce8f59eff954800ba0dd0",
+    "semantic_hash": "3c1247bdae0ce8f59eff954800ba0dd0"
+  },
+  "orazio/http_clients.py": {
+    "mtime": 1790051945.3058054,
+    "seen": 1790075111.7622004,
+    "ast_hash": "0a40838097147b6763b2fc8d44163ca9",
+    "semantic_hash": "0a40838097147b6763b2fc8d44163ca9"
+  },
+  "orazio/market_data.py": {
+    "mtime": 1790052196.5943854,
+    "seen": 1790075111.7622008,
+    "ast_hash": "134cdcacd4400923bc84b67ffcfa2836",
+    "semantic_hash": "134cdcacd4400923bc84b67ffcfa2836"
+  },
+  "orazio/nse_client.py": {
+    "mtime": 1790051999.5666866,
+    "seen": 1790075111.7622013,
+    "ast_hash": "9c78830c956d4b70b65d8e1e90e0d948",
+    "semantic_hash": "9c78830c956d4b70b65d8e1e90e0d948"
+  },
+  "orazio/poller.py": {
+    "mtime": 1790052098.8655827,
+    "seen": 1790075111.7622018,
+    "ast_hash": "d0d7c3bcc0ce009d5c84120de593c09a",
+    "semantic_hash": "d0d7c3bcc0ce009d5c84120de593c09a"
+  },
+  "orazio/routes.py": {
+    "mtime": 1790052196.5943854,
+    "seen": 1790075111.7622023,
+    "ast_hash": "38cf58a2f8d45daeac9e7a7836bcf176",
+    "semantic_hash": "38cf58a2f8d45daeac9e7a7836bcf176"
+  },
+  "orazio/symbols.py": {
+    "mtime": 1790051931.770254,
+    "seen": 1790075111.762203,
+    "ast_hash": "2e841cb0bb3ab356a81308c0c4643fe5",
+    "semantic_hash": "2e841cb0bb3ab356a81308c0c4643fe5"
+  },
+  "static/js/cas-feed.js": {
+    "mtime": 1790052687.5693831,
+    "seen": 1790075111.7622035,
+    "ast_hash": "67f11d52e29c50b859daa69d0d0053cc",
+    "semantic_hash": "67f11d52e29c50b859daa69d0d0053cc"
+  },
+  "static/js/cas-movement.js": {
+    "mtime": 1790052653.6611733,
+    "seen": 1790075111.762204,
+    "ast_hash": "87cebda5eb79f3fa55829bf0c939758b",
+    "semantic_hash": "87cebda5eb79f3fa55829bf0c939758b"
+  },
+  "static/js/cas-panel.js": {
+    "mtime": 1790052624.4999177,
+    "seen": 1790075111.7622046,
+    "ast_hash": "c2dfb6a067338e8493bae325193897e7",
+    "semantic_hash": "c2dfb6a067338e8493bae325193897e7"
+  },
+  "static/js/chart.js": {
+    "mtime": 1790052469.4205017,
+    "seen": 1790075111.7622051,
+    "ast_hash": "dfa925f8e41c9b9d487897d2114f5d03",
+    "semantic_hash": "dfa925f8e41c9b9d487897d2114f5d03"
+  },
+  "static/js/data.js": {
+    "mtime": 1790052526.1486163,
+    "seen": 1790075111.7622056,
+    "ast_hash": "43512d97b2d00f495a1c039d667f0dd3",
+    "semantic_hash": "43512d97b2d00f495a1c039d667f0dd3"
+  },
+  "static/js/futures.js": {
+    "mtime": 1790052548.3065886,
+    "seen": 1790075111.7622063,
+    "ast_hash": "bd5967b1305c5b0b5ad03d75c01a32bb",
+    "semantic_hash": "bd5967b1305c5b0b5ad03d75c01a32bb"
+  },
+  "static/js/main.js": {
+    "mtime": 1790052731.9505427,
+    "seen": 1790075111.7622068,
+    "ast_hash": "94777f03ba6b03e0bbdf0d1fb0591e55",
+    "semantic_hash": "94777f03ba6b03e0bbdf0d1fb0591e55"
+  },
+  "static/js/options.js": {
+    "mtime": 1790052701.1218276,
+    "seen": 1790075111.762207,
+    "ast_hash": "975b4094b5e37c955d06e35ec990b683",
+    "semantic_hash": "975b4094b5e37c955d06e35ec990b683"
+  },
+  "static/js/prefs.js": {
+    "mtime": 1790052425.1780612,
+    "seen": 1790075111.7622075,
+    "ast_hash": "3f4efec2ef1cfec08b947c251203ab80",
+    "semantic_hash": "3f4efec2ef1cfec08b947c251203ab80"
+  },
+  "static/js/rail.js": {
+    "mtime": 1790052591.1473224,
+    "seen": 1790075111.762208,
+    "ast_hash": "242ed561ee3e12a4ded1bd7ba01771a7",
+    "semantic_hash": "242ed561ee3e12a4ded1bd7ba01771a7"
+  },
+  "static/js/state.js": {
+    "mtime": 1790052389.292597,
+    "seen": 1790075111.7622085,
+    "ast_hash": "9da656c70a5850bd1cffa02ed309d5e4",
+    "semantic_hash": "9da656c70a5850bd1cffa02ed309d5e4"
+  },
+  "static/js/symbol.js": {
+    "mtime": 1790052580.6270485,
+    "seen": 1790075111.762209,
+    "ast_hash": "908798f132ed490d086a3509418abe09",
+    "semantic_hash": "908798f132ed490d086a3509418abe09"
+  },
+  "static/js/ui.js": {
+    "mtime": 1790052419.7739284,
+    "seen": 1790075111.7622097,
+    "ast_hash": "a46eec1d3ebd90f7087e3d9eb1187a4c",
+    "semantic_hash": "a46eec1d3ebd90f7087e3d9eb1187a4c"
+  },
+  "tests/__init__.py": {
+    "mtime": 1790052291.8333411,
+    "seen": 1790075111.76221,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "tests/test_candles.py": {
+    "mtime": 1790052306.8799982,
+    "seen": 1790075111.7622104,
+    "ast_hash": "51a08fe5b8d181e514cfb942875dbf75",
+    "semantic_hash": "51a08fe5b8d181e514cfb942875dbf75"
+  },
+  "tests/test_cas.py": {
+    "mtime": 1790052320.144206,
+    "seen": 1790075111.7622108,
+    "ast_hash": "99363fb5e2aef6c4d8efef8a9c1cb0f9",
+    "semantic_hash": "99363fb5e2aef6c4d8efef8a9c1cb0f9"
+  },
+  "tests/test_symbols.py": {
+    "mtime": 1790052301.4286232,
+    "seen": 1790075111.7622113,
+    "ast_hash": "57c07a489ce92a0ec7036da8657598c1",
+    "semantic_hash": "57c07a489ce92a0ec7036da8657598c1"
+  },
+  "README.md": {
+    "mtime": 1790074467.9873428,
+    "seen": 1790075111.7622118,
+    "ast_hash": "7cf4e0266216c51865c9a46f25a1b927",
+    "semantic_hash": "7cf4e0266216c51865c9a46f25a1b927"
+  }
+}
