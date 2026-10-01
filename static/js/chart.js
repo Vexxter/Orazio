@@ -1,3 +1,5 @@
+import { compactIN } from './format.js';
+import { statsHtml, volumeAt } from './legend-html.js';
 import { $, COLORS, INTERVAL_LABEL, alpha, dateFmt, dateTimeFmt, dayKey, displayName, esc, state, timeFmt, token } from './state.js';
 
 export const chart = LightweightCharts.createChart(document.getElementById('chart'), {
@@ -9,7 +11,7 @@ export const chart = LightweightCharts.createChart(document.getElementById('char
     vertLine: { color: COLORS.crosshair, labelBackgroundColor: token('--bg-3') },
     horzLine: { color: COLORS.crosshair, labelBackgroundColor: token('--bg-3') },
   },
-  rightPriceScale: { autoScale: true, borderColor: COLORS.border, scaleMargins: { top: 0.08, bottom: 0.35 } },
+  rightPriceScale: { autoScale: true, borderColor: COLORS.border, scaleMargins: { top: 0.08, bottom: 0.1 } },
   handleScroll: { mouseWheel: true },
   handleScale: { mouseWheel: true },
   watermark: { visible: false, color: 'rgba(230, 234, 242, 0.05)', fontSize: 56, horzAlign: 'center', vertAlign: 'center', text: '' },
@@ -42,9 +44,22 @@ export const areaSeries = chart.addAreaSeries({
   visible: false,
 });
 
+// Volume lives on its OWN price scale (left axis, quantity labels) squeezed into the bottom
+// ~6% of the chart, and the main scale keeps a clear gap above it, so the bars can never
+// reach up into the candles. (Time stays on the one shared bottom axis: Lightweight Charts
+// v4 has a single time scale per chart.)
 export const volumeSeries = chart.addHistogramSeries({
-  priceFormat: { type: 'volume' }, priceScaleId: '', scaleMargins: { top: 0.93, bottom: 0 },
-  priceLineVisible: false, lastValueVisible: false,
+  priceFormat: { type: 'volume' }, priceScaleId: 'left',
+  priceLineVisible: false, lastValueVisible: true,
+});
+const VOLUME_TOP = 0.94;
+const MAIN_BOTTOM_WITH_VOLUME = 0.1;
+const MAIN_BOTTOM_NO_VOLUME = 0.05;
+// Lightweight Charts v4 only draws an axis for the built-in 'left'/'right' scales — a
+// custom-named overlay scale would stay invisible — so volume takes the (otherwise empty)
+// left scale.
+chart.priceScale('left').applyOptions({
+  visible: true, borderColor: COLORS.border, scaleMargins: { top: VOLUME_TOP, bottom: 0 },
 });
 export const sma20Series = chart.addLineSeries({ color: '#f0b90b', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
 export const sma50Series = chart.addLineSeries({ color: '#7e57c2', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
@@ -77,8 +92,18 @@ export function computeDayBoundaries() {
 
 // Thin dotted vertical line at each session boundary — a DOM overlay (Lightweight
 // Charts v4 has no primitives API for custom drawings), repositioned on every pan/zoom.
+// Overlays (day lines, measure, trendlines) use coordinates relative to the PLOT area, which
+// starts after the left volume axis — so they must start there too, or everything they draw
+// lands that axis's width to the left of where it was clicked.
+export function syncOverlayInset() {
+  let w = 0;
+  try { w = chart.priceScale('left').width(); } catch (e) { /* scale not laid out yet */ }
+  $('chart-wrap').style.setProperty('--pane-left', `${w}px`);
+}
+
 const dayLinesEl = $('day-lines');
 export function renderDayLines() {
+  syncOverlayInset();
   dayLinesEl.innerHTML = '';
   if (state.currentInterval === '1d' || !state.dayBoundaryTimes.size) return;
   const ts = chart.timeScale();
@@ -121,7 +146,30 @@ function sma(data, period) {
   return out;
 }
 
+function layoutVolumeScale(on) {
+  chart.priceScale('right').applyOptions({ scaleMargins: { top: 0.08, bottom: on ? MAIN_BOTTOM_WITH_VOLUME : MAIN_BOTTOM_NO_VOLUME } });
+  chart.priceScale('left').applyOptions({ visible: on });
+}
+
+// The volume scale spans the whole pane height (its bars are squeezed into the bottom strip by
+// scaleMargins), so left alone it would print tick labels — and crosshair labels — all the way
+// up the chart. Blank every label above the tallest bar currently ON SCREEN, so only the strip
+// itself is labelled. Re-run whenever the visible range changes.
+function updateVolumeAxisLabels() {
+  const bars = state.latestCandles;
+  const r = chart.timeScale().getVisibleLogicalRange();
+  const from = r ? Math.max(0, Math.floor(r.from)) : 0;
+  const to = r ? Math.min(bars.length - 1, Math.ceil(r.to)) : bars.length - 1;
+  let max = 0;
+  for (let i = from; i <= to; i++) max = Math.max(max, bars[i].volume || 0);
+  volumeSeries.applyOptions({
+    priceFormat: { type: 'custom', minMove: 1, formatter: (v) => (v > 0 && v <= max * 1.1 ? compactIN(v) : '') },
+  });
+}
+chart.timeScale().subscribeVisibleLogicalRangeChange(updateVolumeAxisLabels);
+
 export function renderIndicators() {
+  layoutVolumeScale($('vol').checked);
   sma20Series.setData($('sma20').checked ? sma(state.latestCandles, 20) : []);
   sma50Series.setData($('sma50').checked ? sma(state.latestCandles, 50) : []);
   sma200Series.setData($('sma200').checked ? sma(state.latestCandles, 200) : []);
@@ -129,6 +177,9 @@ export function renderIndicators() {
     time: c.time, value: c.volume,
     color: c.close >= c.open ? COLORS.volUp : COLORS.volDown,
   })) : []);
+
+  updateVolumeAxisLabels();
+  syncOverlayInset();
 }
 
 // Line/Area styles have no per-bar up/down of their own (unlike Candle/Bar), so they're
@@ -150,19 +201,36 @@ export function updateWatermark() {
 
 // OHLC readout: the last bar by default, the hovered bar while the crosshair is on the chart.
 const legendEl = $('legend');
+
 export function updateLegend(bar) {
   const b = bar || state.latestCandles[state.latestCandles.length - 1];
   if (!b) { legendEl.innerHTML = ''; return; }
-  const head = `<span class="lg-sym">${esc(displayName(state.currentSymbol))}</span><span class="lg-tag">${INTERVAL_LABEL[state.currentInterval] || esc(state.currentInterval)}</span>`;
+  // Rail indices (NIFTY, GOLD, ...) are already readable; anything else — a bare ticker such as
+  // 688185.SS — gets its company name next to it.
+  const isRailSymbol = (state.CONFIG.quickIndices || []).includes(state.currentSymbol);
+  const nm = state.symbolName;
+  const nameHtml = !isRailSymbol && nm && nm.symbol === state.currentSymbol && nm.name
+    ? `<span class="lg-name">${esc(nm.name)}</span>` : '';
+  const head = `<span class="lg-sym">${esc(displayName(state.currentSymbol))}</span>${nameHtml}<span class="lg-tag">${INTERVAL_LABEL[state.currentInterval] || esc(state.currentInterval)}</span>`;
   const f = (v) => v.toFixed(2);
+  // Hovering shows that bar's own volume. With no hover, show the newest bar that HAS volume:
+  // the in-progress candle reads 0 until NSE's next update (it publishes about once a minute).
+  let vol;
+  if (bar) vol = volumeAt(state.latestCandles, bar.time);
+  else {
+    const withVol = [...state.latestCandles].reverse().find(c => c.volume > 0);
+    vol = withVol ? withVol.volume : b.volume;
+  }
+  const volItem = `<span><span class="lg-k">Vol</span><span class="num">${vol > 0 ? compactIN(vol) : '–'}</span></span>`;
+  const tail = statsHtml(state.stats, state.currentSymbol);
   if (b.open === undefined || state.currentStyle === 'line' || state.currentStyle === 'area') {
     const lineCls = state.lineAreaUp === false ? 'down' : state.lineAreaUp === true ? 'up' : '';
-    legendEl.innerHTML = `${head}<span><span class="lg-k">Close</span><span class="num ${lineCls}">${f(b.close ?? b.value)}</span></span>`;
+    legendEl.innerHTML = `${head}<span><span class="lg-k">Close</span><span class="num ${lineCls}">${f(b.close ?? b.value)}</span></span>${volItem}${tail}`;
     return;
   }
   const cls = b.close >= b.open ? 'up' : 'down';
   legendEl.innerHTML = head + [['Open', b.open], ['High', b.high], ['Low', b.low], ['Close', b.close]]
-    .map(([k, v]) => `<span><span class="lg-k">${k}</span><span class="num ${cls}">${f(v)}</span></span>`).join('');
+    .map(([k, v]) => `<span><span class="lg-k">${k}</span><span class="num ${cls}">${f(v)}</span></span>`).join('') + volItem + tail;
 }
 chart.subscribeCrosshairMove((param) => {
   const d = param.time ? param.seriesData.get(priceSeriesByStyle[state.currentStyle]) : null;
@@ -181,6 +249,7 @@ export function applyThemeToChart() {
       horzLine: { color: COLORS.crosshair, labelBackgroundColor: token('--bg-3') },
     },
     rightPriceScale: { borderColor: COLORS.border },
+    leftPriceScale: { borderColor: COLORS.border },
     timeScale: { borderColor: COLORS.border },
   });
   candleSeries.applyOptions({ upColor: COLORS.up, downColor: COLORS.down, wickUpColor: COLORS.up, wickDownColor: COLORS.down });

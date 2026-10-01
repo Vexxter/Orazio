@@ -8,3 +8,4 @@ cryptography
 pandas
 lxml
 pytest
+pyarrow

@@ -1,4 +1,5 @@
 // Left index rail: quick-access index list, grouped by region.
+import { formatVolume } from './format.js';
 import { $, esc, state } from './state.js';
 import { toast } from './ui.js';
 import { switchSymbol } from './symbol.js';
@@ -6,21 +7,33 @@ import { switchSymbol } from './symbol.js';
 const symbolInput = $('symbol-input');
 
 const INDEX_META = {
-  NIFTY: ['Nifty 50', 'India'], BANKNIFTY: ['Bank Nifty', 'India'], NIFTYIT: ['Nifty IT', 'India'], SENSEX: ['BSE Sensex', 'India'],
+  NIFTY: ['Nifty 50', 'India'], BANKNIFTY: ['Bank Nifty', 'India'], NIFTYIT: ['Nifty IT', 'India'], SENSEX: ['BSE Sensex', 'India'], GIFTNIFTY: ['GIFT Nifty (futures)', 'India'],
   SPX: ['S&P 500', 'US'], NASDAQ: ['Nasdaq Composite', 'US'], DOWJONES: ['Dow Jones', 'US'],
+  CRUDE: ['WTI Crude Oil', 'Commodities'], BRENT: ['Brent Crude', 'Commodities'], GOLD: ['Gold', 'Commodities'],
+  SILVER: ['Silver', 'Commodities'], NATGAS: ['Natural Gas', 'Commodities'], COPPER: ['Copper', 'Commodities'],
+  BTC: ['Bitcoin', 'Crypto'], ETH: ['Ethereum', 'Crypto'], BNB: ['BNB', 'Crypto'], SOL: ['Solana', 'Crypto'],
+  XRP: ['XRP', 'Crypto'], DOGE: ['Dogecoin', 'Crypto'],
   KOSPI: ['KOSPI', 'Asia'], TAIEX: ['Taiwan Weighted', 'Asia'], CHINA: ['CSI 300', 'Asia'], SSE: ['Shanghai Composite', 'Asia'],
 };
-const RAIL_GROUPS = ['India', 'US', 'Asia', 'Other'];
+const RAIL_GROUPS = ['India', 'US', 'Commodities', 'Asia', 'Crypto', 'Other'];
 // NIFTY/BANKNIFTY/NIFTYIT: free from NSE's own allIndices payload (orazio/cas.py
 // breadth_from_all_indices). SENSEX/DOWJONES/SPX/CHINA: computed from their own
-// constituents (orazio/constituents.py) since nobody publishes it for them. NASDAQ,
-// KOSPI, TAIEX and SSE have no accurate free constituent list to compute it from, so
-// they simply get no breadth line rather than a guessed one.
-const BREADTH_ALIASES = new Set(['NIFTY', 'BANKNIFTY', 'NIFTYIT', 'SENSEX', 'DOWJONES', 'SPX', 'CHINA']);
+// constituents (orazio/constituents.py) since nobody publishes it for them. NASDAQ and
+// TAIEX come from their exchanges (orazio/market_breadth.py); KOSPI counts the KOSPI 200.
+// SSE is counted over every Shanghai A-share (orazio/global_movers.py).
+const BREADTH_ALIASES = new Set(['NIFTY', 'BANKNIFTY', 'NIFTYIT', 'SENSEX', 'DOWJONES', 'SPX', 'CHINA', 'NASDAQ', 'KOSPI', 'TAIEX', 'SSE']);
+// These count a different set than the name on the rail suggests, so say so on hover.
+const BREADTH_BASIS = {
+  NASDAQ: 'Counts the Nasdaq-100 stocks, not the whole Composite',
+  KOSPI: 'Counts the KOSPI 200 stocks, not every KOSPI-listed stock',
+  SSE: 'Shanghai-listed A-shares (main board + STAR)',
+  TAIEX: 'All TWSE-listed stocks, from the exchange itself — published after the close, so this is the last finished session',
+};
 
 export function highlightRail() {
   // While on ES=F the rail should still show SPX as the active index.
-  const active = (state.CONFIG.futuresMeta[state.currentSymbol] || {}).alias || state.currentSymbol;
+  const cur = state.currentSymbol.endsWith('-FUT') ? state.currentSymbol.slice(0, -4) : state.currentSymbol;
+  const active = (state.CONFIG.futuresMeta[cur] || {}).alias || cur;
   document.querySelectorAll('.rail-item').forEach(b => {
     b.setAttribute('aria-current', String(b.dataset.sym === active));
   });
@@ -53,13 +66,6 @@ export async function loadConfig() {
   loadBreadth();
 }
 
-function formatVolume(n) {
-  if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
-  if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
-  if (n >= 1e3) return (n / 1e3).toFixed(0) + 'K';
-  return String(n);
-}
-
 // Live advances/declines for the indices NSE publishes it for (see BREADTH_ALIASES).
 export async function loadBreadth() {
   try {
@@ -74,6 +80,7 @@ export async function loadBreadth() {
       // "index volume" (indices don't have one), hence the honest label on hover.
       const vol = row.volume ? `<span class="rail-vol" title="Combined volume of tracked constituents, today so far — not an official index figure">· ${formatVolume(row.volume)}</span>` : '';
       el.innerHTML = `<span class="up">▲${row.advances}</span> <span class="down">▼${row.declines}</span>${vol}`;
+      if (BREADTH_BASIS[row.alias]) el.title = BREADTH_BASIS[row.alias];
     }
   } catch (e) { /* breadth is a nicety on top of the rail; failing quietly is fine */ }
 }

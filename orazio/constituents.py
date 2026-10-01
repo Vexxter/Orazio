@@ -19,11 +19,9 @@ Two tiers:
     is. Polled on the slower LARGE_INDEX_POLL_SEC so the periodic 500+800-request burst
     doesn't stack on top of the small indices' own traffic every minute.
 
-Still excluded: Nasdaq Composite (~3000 constituents — no clean free list, and the
-count alone makes a single poll cycle impractical on an unauthenticated source),
-KOSPI, TAIEX, Shanghai Composite (no clean full-constituent table found on Wikipedia
-or elsewhere free — a fabricated subset would misrepresent the index, so these stay
-without a breadth or movers line rather than guess).
+KOSPI is counted over the KOSPI 200 (Wikipedia's 200-row table), not all ~950 listed
+stocks. NASDAQ and TAIEX come straight from their exchanges (see market_breadth.py).
+Still excluded: Shanghai Composite (no clean free constituent list).
 """
 import threading
 import time
@@ -72,6 +70,12 @@ LARGE_INDEX_SOURCES = {
         "table_index": 0,
         "ticker_col": "Symbol",
         "to_yf": lambda sym: sym.replace(".", "-"),  # yfinance wants BRK-B, Wikipedia has BRK.B
+    },
+    "KOSPI": {
+        "wiki_page": "KOSPI_200",
+        "table_index": 2,
+        "ticker_col": "Symbol",
+        "to_yf": lambda code: code.strip().zfill(6) + ".KS",  # 6-digit KRX code, e.g. 005930 -> 005930.KS
     },
     "CHINA": {
         "wiki_page": "CSI_300_Index",
@@ -135,6 +139,7 @@ def top_movers(ohlcv_by_ticker, n=TOP_N_MOVERS):
         pct = (row["last"] - row["prevClose"]) / row["prevClose"] * 100
         rows.append({
             "symbol": ticker.split(".")[0],
+            "chartSymbol": ticker,  # the un-stripped Yahoo ticker /api/candles needs
             "ltp": row["last"],
             "perChange": pct,
             "open": row["open"],

@@ -1,4 +1,4 @@
-// Call auction: live movement modal (Indian indices, one quadrant each).
+// Closing auction (CAS): live movement modal (Indian indices, one quadrant each).
 // Every chart is measured against the REFERENCE: the last value at 15:14:59, the final traded
 // value before continuous trading stops. A baseline series draws green above it, red below it.
 import { CAS_PHASE_NAME, fmtCountdown } from './cas-panel.js';

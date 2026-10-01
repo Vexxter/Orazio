@@ -2,8 +2,9 @@
 // them. A DOM overlay positioned via the same timeToCoordinate/priceToCoordinate
 // technique chart.js already uses for the day-boundary lines (Lightweight Charts v4 has
 // no primitives API for custom drawings).
-import { chart, priceSeriesByStyle } from './chart.js';
-import { $, state } from './state.js';
+import { chart, syncOverlayInset } from './chart.js';
+import { pointFromParam, toXY, trendReadout } from './anchor.js';
+import { $ } from './state.js';
 
 const overlay = $('measure-overlay');
 const btn = $('measure-btn');
@@ -11,16 +12,11 @@ let active = false;
 let pointA = null;
 let pointB = null;
 
-function toXY(time, price) {
-  const x = chart.timeScale().timeToCoordinate(time);
-  const y = priceSeriesByStyle[state.currentStyle].priceToCoordinate(price);
-  return { x, y };
-}
-
 function render() {
+  syncOverlayInset();
   overlay.innerHTML = '';
   if (!pointA) return;
-  const a = toXY(pointA.time, pointA.price);
+  const a = toXY(pointA);
   if (a.x === null || a.y === null) return;
 
   if (!pointB) {
@@ -32,7 +28,7 @@ function render() {
     return;
   }
 
-  const b = toXY(pointB.time, pointB.price);
+  const b = toXY(pointB);
   if (b.x === null || b.y === null) return;
 
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -44,26 +40,14 @@ function render() {
   svg.appendChild(line);
   overlay.appendChild(svg);
 
-  const diff = pointB.price - pointA.price;
-  const pct = pointA.price ? (diff / pointA.price) * 100 : 0;
-  const up = diff >= 0;
-  const span = formatSpan(Math.abs(pointB.time - pointA.time));
+  const { up, text } = trendReadout(pointA, pointB);
 
   const label = document.createElement('div');
   label.className = `measure-label ${up ? 'up' : 'down'}`;
   label.style.left = `${(a.x + b.x) / 2}px`;
   label.style.top = `${Math.min(a.y, b.y) - 10}px`;
-  label.textContent = `${up ? '▲' : '▼'} ${up ? '+' : ''}${diff.toFixed(2)} (${up ? '+' : ''}${pct.toFixed(2)}%) · ${span}`;
+  label.textContent = text;
   overlay.appendChild(label);
-}
-
-function formatSpan(sec) {
-  const d = Math.floor(sec / 86400);
-  const h = Math.floor((sec % 86400) / 3600);
-  const m = Math.floor((sec % 3600) / 60);
-  if (d) return `${d}d ${h}h`;
-  if (h) return `${h}h ${m}m`;
-  return `${m}m`;
 }
 
 function clear() {
@@ -73,10 +57,9 @@ function clear() {
 }
 
 function onClick(param) {
-  if (!active || !param.point || param.time === undefined) return;
-  const price = priceSeriesByStyle[state.currentStyle].coordinateToPrice(param.point.y);
-  if (price === null || price === undefined) return;
-  const point = { time: param.time, price };
+  if (!active) return;
+  const point = pointFromParam(param);
+  if (!point) return;
   if (!pointA || pointB) {
     pointA = point;
     pointB = null;
@@ -86,11 +69,16 @@ function onClick(param) {
   render();
 }
 
+// Wipes the current measurement but leaves the tool armed, so you can measure again straight away.
+export function clearMeasure() { clear(); }
+
 export function toggleMeasure(forceOff) {
   active = forceOff ? false : !active;
   btn.setAttribute('aria-pressed', String(active));
-  if (active) chart.subscribeClick(onClick);
-  else { chart.unsubscribeClick(onClick); clear(); }
+  if (active) {
+    chart.subscribeClick(onClick);
+    import('./draw.js').then(m => m.turnOffDrawing()); // only one click-to-place tool active at a time
+  } else { chart.unsubscribeClick(onClick); clear(); }
 }
 
 chart.timeScale().subscribeVisibleTimeRangeChange(render);

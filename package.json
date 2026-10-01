@@ -1,0 +1,9 @@
+{
+  "name": "orazio",
+  "private": true,
+  "type": "module",
+  "description": "Orazio — local charting. This file exists only to run the frontend unit tests: npm test",
+  "scripts": {
+    "test": "node --test \"tests/frontend/*.test.mjs\""
+  }
+}

@@ -1,5 +1,5 @@
 """Starts every background thread the app needs, exactly once."""
-from . import cas, constituents, market_data
+from . import binance_stream, cas, commodities, constituents, exports, gift_nifty, live_volume, market_breadth, market_data
 
 _started = False
 
@@ -13,3 +13,8 @@ def ensure_poller():
         cas.start_seed_loop()
         cas.ensure_nse_poller()
         constituents.start_constituent_poller()
+        live_volume.start()
+        gift_nifty.start()
+        binance_stream.start(commodities.SYMBOLS)
+        market_breadth.start()
+        exports.start_scheduler()

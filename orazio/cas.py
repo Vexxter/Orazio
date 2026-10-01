@@ -1,4 +1,4 @@
-"""Call Auction Session (CAS): pre-open, closing auction, and post-market.
+"""Closing Auction Session (CAS): pre-open, closing auction, and post-market.
 
 Pre-open  09:00-09:15 IST: orders collected 09:00-09:08, matched 09:08-09:12.
   Price discovery is real here, and NSE publishes each stock's IEP (indicative
@@ -199,10 +199,35 @@ def breadth_rows():
     return breadth_from_all_indices(payload)
 
 
+def _nextapi_index_rows():
+    """The feed behind nseindia.com/market-data/live-equity-market (`getIndexData`):
+    same index rows as allIndices but refreshed far more often (independently confirmed
+    ~3 s) and carrying indicativeClose. It has no advances/declines, so allIndices stays
+    for breadth."""
+    d = cached(("nextapi-indices", ""), QUOTE_CACHE_TTL, lambda: nse_get(
+        "/api/NextApi/apiClient", {"functionName": "getIndexData", "type": "All"}))
+    return {r.get("indexName"): r for r in (d or {}).get("data", []) if isinstance(r, dict)}
+
+
 def all_indices():
-    """`allIndices`, cached like every other NSE poll here — shared by /api/cas and
-    /api/breadth so polling both doesn't double the outbound NSE traffic."""
-    return cached(("all-indices", ""), QUOTE_CACHE_TTL, lambda: nse_get("/api/allIndices"))
+    """`allIndices` with last/open/previousClose/indicativeClose overlaid from the faster
+    NextApi feed, cached like every other NSE poll here — shared by /api/cas and
+    /api/breadth so polling both doesn't double the outbound NSE traffic. Falls back to
+    plain allIndices when the NextApi feed is unreachable."""
+    def fetch():
+        payload = nse_get("/api/allIndices")
+        fresh = _nextapi_index_rows()
+        if not payload or not fresh:
+            return payload
+        for row in payload.get("data", []):
+            new = fresh.get(row.get("index"))
+            if not new:
+                continue
+            for key in ("last", "open", "previousClose", "indicativeClose"):
+                if new.get(key) is not None:
+                    row[key] = new[key]
+        return payload
+    return cached(("all-indices", ""), QUOTE_CACHE_TTL, fetch)
 
 
 def _save_seed():
@@ -301,7 +326,7 @@ def cas_reference(alias, now_ist, points):
 def _nse_index_poller():
     while True:
         try:
-            d = nse_get("/api/allIndices") or {}
+            d = all_indices() or {}
             by = {r.get("index"): r for r in d.get("data", [])}
             _p, _m, ind = nse_session()
             for alias, name in NSE_INDEX_NAMES.items():

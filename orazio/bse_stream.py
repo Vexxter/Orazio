@@ -60,6 +60,14 @@ def _stamp(s):
         return None
 
 
+def forget_chain():
+    """Drop the cached chain so the next connection fetches BSE's current intermediate."""
+    try:
+        os.remove(CHAIN_FILE)
+    except OSError:
+        pass
+
+
 def build_ssl_context():
     """A verifying SSL context that trusts certifi's roots plus BSE's missing intermediate."""
     if not os.path.exists(CHAIN_FILE) or time.time() - os.path.getmtime(CHAIN_FILE) > 7 * 86400:
@@ -121,6 +129,8 @@ class BseStream:
                 backoff = 2
             except Exception as e:  # any failure: record it, back off, retry. REST covers the gap.
                 self.last_error = f"{type(e).__name__}: {str(e)[:120]}"
+                if isinstance(e, ssl.SSLCertVerificationError):
+                    forget_chain()      # BSE rotated its intermediate: the cached chain is stale, rebuild it
             self.connected = False
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, 60)
