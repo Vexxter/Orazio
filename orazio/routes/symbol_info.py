@@ -5,6 +5,7 @@ import requests
 import yfinance as yf
 from flask import abort, jsonify, request
 
+from .. import bonds, gsec
 from .. import fno as fno_service
 from .. import names as names_service
 from .. import news as news_service
@@ -28,6 +29,10 @@ def name_route():
     if symbol.endswith("-FUT"):
         res = fno_service.resolve(symbol)
         return jsonify({"symbol": symbol, "name": f"{res['name']} — futures (front month)" if res else None})
+    if bonds.is_bond(symbol):
+        return jsonify({"symbol": symbol, "name": bonds.name(symbol)})
+    if gsec.is_gsec(symbol):
+        return jsonify({"symbol": symbol, "name": gsec.name(symbol)})
     return jsonify({"symbol": symbol, "name": names_service.english_name(symbol)})
 
 

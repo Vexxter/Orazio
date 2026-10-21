@@ -25,16 +25,24 @@ export function futuresCounterpart(sym) {
   return cash ? { mode: 'futures', to: (state.CONFIG.futuresMeta[sym] || {}).alias || cash } : null;
 }
 
+const seg = $('futures-toggle');
+
 export function updateFuturesToggle() {
   updateFeedToggle();
   const info = state.resolvedSymbol ? futuresCounterpart(state.resolvedSymbol) : null;
-  $('futures-toggle').classList.toggle('shown', !!info);
-  $('futures').checked = !!info && info.mode === 'futures';
+  seg.hidden = !info;
+  const side = info && info.mode === 'futures' ? 'fut' : 'spot';
+  seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.side === side)));
   // Keep the search box readable when the symbol is a raw futures ticker.
   if (document.activeElement !== symbolInput && state.CONFIG.futuresMeta[state.currentSymbol]) symbolInput.value = displayName(state.currentSymbol);
 }
 
-$('futures').addEventListener('change', () => {
+document.addEventListener('candles:loaded', updateFuturesToggle);
+
+// Spot | Futures: clicking the side already shown does nothing.
+seg.addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-side]');
+  if (!btn || btn.getAttribute('aria-pressed') === 'true') return;
   const info = state.resolvedSymbol ? futuresCounterpart(state.resolvedSymbol) : null;
   if (info) { symbolInput.value = displayName(info.to); switchSymbol(info.to); }
 });

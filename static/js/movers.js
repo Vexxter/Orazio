@@ -1,7 +1,7 @@
 // Top Gainers/Losers modal. Same open/poll/close pattern as cas-feed.js.
 import { loadCandles } from './data.js';
 import { switchSymbol } from './symbol.js';
-import { $, esc } from './state.js';
+import { $, esc, visible } from './state.js';
 import { setIntervalUI } from './ui.js';
 
 const moversModal = $('movers-modal');
@@ -15,7 +15,7 @@ function openMovers() {
   $('movers-close').focus();
   loadMovers();
   clearInterval(moversPoll);
-  moversPoll = setInterval(loadMovers, 10000);
+  moversPoll = setInterval(visible(loadMovers), 10000);
 }
 function closeMovers() {
   moversModal.classList.remove('open');

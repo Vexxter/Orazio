@@ -14,6 +14,13 @@ def get_json(client, url, status=200):
     return resp.get_json()
 
 
+@pytest.fixture(autouse=True)
+def _no_reference_network(monkeypatch):
+    """After 15:15 IST the routes lock a reference and read the futures feed; keep both off the network."""
+    monkeypatch.setattr(cas, "_yahoo_minute_close", lambda *a: None)
+    monkeypatch.setattr(cas.fno, "front_ticks", lambda u: [])
+
+
 @pytest.fixture
 def nse_quiet(monkeypatch):
     """No live auction: NSE names no session, the clock decides."""
@@ -33,6 +40,17 @@ def test_panel_rows_use_nse_for_nse_indices_and_bse_for_sensex(client, nse_quiet
     sensex = rows["SENSEX"]
     assert sensex["source"] == "bse" and sensex["available"] and sensex["open"] == 72050.0 and sensex["indicativeClosePct"] is None
     assert rows["SPX"]["available"] is False and "No public closing-auction feed" in rows["SPX"]["reason"]
+
+
+def test_panel_rows_carry_the_futures_implied_close(client, nse_quiet, monkeypatch):
+    monkeypatch.setattr(cas, "all_indices", lambda: {"data": [{"index": "NIFTY 50", "previousClose": 100.0, "last": 101.0}]})
+    monkeypatch.setattr(market_data, "bse_live_quote", lambda _s: {})
+    monkeypatch.setattr(market_data, "bse_raw_sensex", lambda: {})
+    monkeypatch.setattr(cas, "cas_reference", lambda alias, now, pts: {"value": 101.0, "t": 0, "source": "x"})
+    monkeypatch.setattr(cas, "cas_reference_epoch", lambda now: 1000)
+    monkeypatch.setattr(cas.fno, "front_ticks", lambda u: [(999, 111.0), (1030, 113.0)])   # basis 10, future +2
+    nifty = {r["alias"]: r for r in get_json(client, "/api/cas")["indices"]}["NIFTY"]
+    assert nifty["impliedClose"] == 103.0 and nifty["impliedClosePct"] == pytest.approx(3.0) and nifty["impliedAt"] == 1030
 
 
 def test_assets_with_no_auction_are_left_out_of_the_panel(client, nse_quiet, monkeypatch):

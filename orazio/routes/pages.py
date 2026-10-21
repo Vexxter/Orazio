@@ -1,7 +1,7 @@
 """The page itself and the static configuration the frontend boots from."""
 from flask import current_app, jsonify
 
-from .. import commodities
+from .. import commodities, spot
 from ..constants import FUTURES_MAP, FUTURES_META, QUICK_INDICES, SYMBOL_ALIASES
 from . import bp
 
@@ -19,4 +19,6 @@ def config():
         "futuresMeta": FUTURES_META,
         # Commodities that have two feeds to choose between (aliases and tickers): the page shows a source switch for them.
         "commodities": sorted(set(commodities.SYMBOLS) | {a for a, t in SYMBOL_ALIASES.items() if t in commodities.SYMBOLS}),
+        # The ones with a spot feed (Swissquote): the switch offers "Spot" for these only.
+        "spotCommodities": sorted(set(spot.SPOT) | {a for a, t in SYMBOL_ALIASES.items() if t in spot.SPOT}),
     })

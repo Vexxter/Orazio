@@ -39,102 +39,169 @@
 
   <div class="main">
     <header class="toolbar" role="toolbar" aria-label="Chart controls">
-      <div class="search">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-        <input id="symbol-input" type="text" role="combobox" aria-label="Search symbol" aria-expanded="false" aria-controls="symbol-results" aria-autocomplete="list" autocomplete="off" spellcheck="false" placeholder="Search symbol…" value="NIFTY" />
-        <span class="kbd" aria-hidden="true">/</span>
-        <div class="results" id="symbol-results" role="listbox"></div>
+      <div class="tb-group">
+        <div class="search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+          <input id="symbol-input" type="text" role="combobox" aria-label="Search symbol" aria-expanded="false" aria-controls="symbol-results" aria-autocomplete="list" autocomplete="off" spellcheck="false" placeholder="Search symbol…" value="NIFTY" />
+          <span class="kbd" aria-hidden="true">/</span>
+          <div class="results" id="symbol-results" role="listbox"></div>
+        </div>
+        <div class="quote" aria-live="off">
+          <span id="price">--</span>
+          <span id="change" class="chip">--</span>
+        </div>
+        <div class="seg inst-seg" id="feed-seg" role="group" aria-label="Commodity price source" hidden>
+          <button type="button" data-feed="spot" aria-pressed="true" title="Spot price, live: WTI from Dukascopy (= TradingView USOIL), gold and silver from Swissquote; history from Dukascopy">Spot</button>
+          <button type="button" data-feed="futures" aria-pressed="false" title="Futures, real-time: oil, gas and copper from Hyperliquid's oracle (within a cent of the CME/ICE contract); gold and silver from Binance (closest to COMEX)">Futures</button>        </div>
+        <div class="seg inst-seg" id="futures-toggle" role="group" aria-label="Spot or futures" hidden>
+          <button type="button" data-side="spot" aria-pressed="true" title="The index or stock itself">Spot</button>
+          <button type="button" data-side="fut" aria-pressed="false" title="Its front-month futures contract">Futures</button>
+        </div>
       </div>
-
-      <div class="quote" aria-live="off">
-        <span id="price">--</span>
-        <span id="change" class="chip">--</span>
+      <div class="tb-group">
+        <div class="seg" id="interval-seg" role="group" aria-label="Bar interval">
+          <button type="button" data-interval="1m" aria-pressed="true">1m</button>
+          <button type="button" data-interval="5m" aria-pressed="false">5m</button>
+          <button type="button" data-interval="15m" aria-pressed="false">15m</button>
+          <button type="button" data-interval="1h" aria-pressed="false">1h</button>
+          <button type="button" data-interval="1d" aria-pressed="false">1D</button>
+          <button type="button" data-interval="1wk" aria-pressed="false" title="Weekly bars">1W</button>
+        </div>
+        <select id="style" class="select" aria-label="Chart style">
+          <option value="candle">Candles</option>
+          <option value="bar">Bars</option>
+          <option value="line">Line</option>
+          <option value="area">Area</option>
+        </select>
+        <div class="ind-wrap">
+          <button type="button" class="btn tool" id="ind-btn" aria-expanded="false" aria-controls="ind-panel" title="Moving averages, VWAP, Bollinger Bands, RSI, MACD">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17c3-6 6-9 9-6s6 0 9-6M3 21h18"/></svg>
+            <span class="label">Indicators</span><span class="ind-count" id="ind-count"></span>
+          </button>
+          <div class="ind-panel" id="ind-panel" role="dialog" aria-label="Indicators" hidden>
+            <h3>Moving averages</h3>
+            <div class="ind-row" data-ma="0">
+              <label class="ind-check"><input type="checkbox" name="on" aria-label="Moving average 1 on"><i style="background:#f0b90b"></i></label>
+              <select name="type" class="select" aria-label="Moving average 1 type"><option value="sma">SMA</option><option value="ema">EMA</option></select>
+              <input name="len" type="number" min="1" max="1000" step="1" value="20" class="ind-len" aria-label="Moving average 1 length">
+              <select name="tf" class="select" aria-label="Moving average 1 timeframe" title="Which bars the average is computed on">
+                <option value="chart">Chart bars</option><option value="5m">5 min</option><option value="15m">15 min</option><option value="1h">1 hour</option><option value="1d">Days</option><option value="1w">Weeks</option>
+              </select>
+            </div>
+            <div class="ind-row" data-ma="1">
+              <label class="ind-check"><input type="checkbox" name="on" aria-label="Moving average 2 on"><i style="background:#7e57c2"></i></label>
+              <select name="type" class="select" aria-label="Moving average 2 type"><option value="sma">SMA</option><option value="ema">EMA</option></select>
+              <input name="len" type="number" min="1" max="1000" step="1" value="50" class="ind-len" aria-label="Moving average 2 length">
+              <select name="tf" class="select" aria-label="Moving average 2 timeframe" title="Which bars the average is computed on">
+                <option value="chart">Chart bars</option><option value="5m">5 min</option><option value="15m">15 min</option><option value="1h">1 hour</option><option value="1d">Days</option><option value="1w">Weeks</option>
+              </select>
+            </div>
+            <div class="ind-row" data-ma="2">
+              <label class="ind-check"><input type="checkbox" name="on" aria-label="Moving average 3 on"><i style="background:#4c8dff"></i></label>
+              <select name="type" class="select" aria-label="Moving average 3 type"><option value="sma">SMA</option><option value="ema">EMA</option></select>
+              <input name="len" type="number" min="1" max="1000" step="1" value="200" class="ind-len" aria-label="Moving average 3 length">
+              <select name="tf" class="select" aria-label="Moving average 3 timeframe" title="Which bars the average is computed on">
+                <option value="chart">Chart bars</option><option value="5m">5 min</option><option value="15m">15 min</option><option value="1h">1 hour</option><option value="1d">Days</option><option value="1w">Weeks</option>
+              </select>
+            </div>
+            <p class="ind-hint">Timeframe sets the bars the average uses: "Days" with 200 draws the 200-day SMA on any intraday chart.</p>
+            <h3>Overlays</h3>
+            <label class="ind-opt"><input type="checkbox" name="vwap"><i style="background:#ff9800"></i>VWAP <span>session, intraday</span></label>
+            <label class="ind-opt"><input type="checkbox" name="bb"><i style="background:#26c6da"></i>Bollinger Bands <span>20, 2</span></label>
+            <h3>Oscillators</h3>
+            <label class="ind-opt"><input type="checkbox" name="rsi"><i style="background:#ab47bc"></i>RSI <span>14</span></label>
+            <label class="ind-opt"><input type="checkbox" name="macd"><i style="background:#4c8dff"></i>MACD <span>12, 26, 9</span></label>
+          </div>
+        </div>
+        <label class="toggle always" style="--dot:#26a69a"><input type="checkbox" id="vol" checked><span>Volume</span></label>
       </div>
-
-      <span class="sep"></span>
-
-      <div class="seg" id="interval-seg" role="group" aria-label="Bar interval">
-        <button type="button" data-interval="1m" aria-pressed="true">1m</button>
-        <button type="button" data-interval="5m" aria-pressed="false">5m</button>
-        <button type="button" data-interval="15m" aria-pressed="false">15m</button>
-        <button type="button" data-interval="1h" aria-pressed="false">1h</button>
-        <button type="button" data-interval="1d" aria-pressed="false">1D</button>
-      </div>
-
-      <select id="style" class="select" aria-label="Chart style">
-        <option value="candle">Candles</option>
-        <option value="bar">Bars</option>
-        <option value="line">Line</option>
-        <option value="area">Area</option>
-      </select>
-
-      <button type="button" class="btn icon tool" id="measure-btn" aria-pressed="false" aria-label="Measure tool" title="Measure: click two points on the chart to see the change between them">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="6.5" y1="17.5" x2="17.5" y2="6.5" stroke-dasharray="2.5 2.5"/><circle cx="6" cy="18" r="1.8" fill="currentColor" stroke="none"/><circle cx="18" cy="6" r="1.8" fill="currentColor" stroke="none"/></svg><span class="cap">Measure</span>
-      </button>
-      <button type="button" class="btn icon tool" id="trend-btn" aria-pressed="false" aria-label="Trendline tool" title="Trendline: click two points to draw a line, click it again to delete">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="18" x2="18" y2="6"/><circle cx="6" cy="18" r="1.8" fill="currentColor" stroke="none"/><circle cx="18" cy="6" r="1.8" fill="currentColor" stroke="none"/></svg><span class="cap">Trendline</span>
-      </button>
-      <button type="button" class="btn icon tool" id="hline-btn" aria-pressed="false" aria-label="Horizontal line tool" title="Horizontal line: click a price to draw a line across the chart">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="12" x2="20" y2="12"/><circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none"/></svg><span class="cap">H-Line</span>
-      </button>
-      <button type="button" class="btn icon tool" id="draw-clear-btn" aria-label="Clear all drawings" title="Clear all drawings on this chart">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg><span class="cap">Clear</span>
-      </button>
-
-      <span class="sep"></span>
-
-      <label class="toggle always" style="--dot:#f0b90b"><input type="checkbox" id="sma20"><span>SMA 20</span></label>
-      <label class="toggle always" style="--dot:#7e57c2"><input type="checkbox" id="sma50"><span>SMA 50</span></label>
-      <label class="toggle always" style="--dot:#4c8dff"><input type="checkbox" id="sma200"><span>SMA 200</span></label>
-      <label class="toggle always" style="--dot:#26a69a"><input type="checkbox" id="vol" checked><span>Volume</span></label>
-
-      <span class="spacer"></span>
-
-      <div class="seg" id="feed-seg" role="group" aria-label="Commodity price source" hidden>
-        <button type="button" data-feed="binance" aria-pressed="true" title="Binance perpetual futures: real-time, trades around the clock">Binance · live</button>
-        <button type="button" data-feed="yahoo" aria-pressed="false" title="Yahoo's CME futures feed: about 10 minutes behind">Yahoo · 10 min late</button>
-      </div>
-      <label class="toggle" id="futures-toggle" style="--dot:#4c8dff" title="Switch between the index and its futures contract"><input type="checkbox" id="futures"><span>Futures</span></label>
-      <button type="button" class="btn tool" id="fno-btn" title="Futures and option chain for the symbol on the chart (NSE)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20V11M11 20V5M17 20v-6M3 20h18"/></svg>
-        <span class="label">Options</span>
-      </button>
-      <button type="button" class="btn icon tool" id="news-btn" aria-pressed="true" aria-label="Toggle news panel" title="News for the symbol on the chart">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5h11a1 1 0 0 1 1 1v13H6a1 1 0 0 1-1-1V5zM17 9h2a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-2M8 9h6M8 12h6M8 15h4"/></svg><span class="cap">News</span>
-      </button>
-      <button type="button" class="btn icon tool" id="export-btn" aria-label="Download data" title="Download OHLCV data or schedule an end-of-day export">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg><span class="cap">Download</span>
-      </button>
-      <button type="button" class="btn icon tool" id="theme-toggle" aria-label="Toggle light/dark theme" title="Toggle light/dark theme">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/><circle cx="12" cy="12" r="4"/></svg><span class="cap">Theme</span>
-      </button>
-      <button type="button" class="btn icon tool" id="refresh" aria-label="Refresh data" title="Refresh data">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg><span class="cap">Refresh</span>
-      </button>
-      <button type="button" class="btn tool" id="movers-btn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l5-5 4 4 8-8M14 8h6v6"/></svg>
-        <span class="label">Top Movers</span>
-      </button>
     </header>
 
+    <div class="charts">
+    <div class="draw-strip" role="toolbar" aria-label="Drawing tools" aria-orientation="vertical">
+      <span class="dt-title" aria-hidden="true">Draw</span>
+      <button type="button" class="btn icon dt" id="measure-btn" aria-pressed="false" aria-label="Measure" data-tip="Measure: click two points to see the change between them">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="6.5" y1="17.5" x2="17.5" y2="6.5" stroke-dasharray="2.5 2.5"/><circle cx="6" cy="18" r="1.8" fill="currentColor" stroke="none"/><circle cx="18" cy="6" r="1.8" fill="currentColor" stroke="none"/></svg><span class="dt-cap">Measure</span>
+      </button>
+      <button type="button" class="btn icon dt" id="trend-btn" aria-pressed="false" aria-label="Trendline" data-tip="Trendline: click two points">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="18" x2="18" y2="6"/><circle cx="6" cy="18" r="1.8" fill="currentColor" stroke="none"/><circle cx="18" cy="6" r="1.8" fill="currentColor" stroke="none"/></svg><span class="dt-cap">Trend</span>
+      </button>
+      <button type="button" class="btn icon dt" id="hline-btn" aria-pressed="false" aria-label="Horizontal line" data-tip="Horizontal line: click a price">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="12" x2="20" y2="12"/><circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none"/></svg><span class="dt-cap">H-Line</span>
+      </button>
+      <button type="button" class="btn icon dt" id="ray-btn" aria-pressed="false" aria-label="Horizontal ray" data-tip="Horizontal ray: click a point, it extends to the right edge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="7" y1="12" x2="21" y2="12"/><circle cx="6" cy="12" r="2" fill="currentColor" stroke="none"/></svg><span class="dt-cap">Ray</span>
+      </button>
+      <button type="button" class="btn icon dt" id="rect-btn" aria-pressed="false" aria-label="Rectangle" data-tip="Rectangle: click two opposite corners">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4" y="6" width="16" height="12" rx="1"/></svg><span class="dt-cap">Box</span>
+      </button>
+      <button type="button" class="btn icon dt" id="fib-btn" aria-pressed="false" aria-label="Fibonacci retracement" data-tip="Fibonacci retracement: click the start of the move, then its end">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 5h16M4 10h16M4 14h16M4 19h16"/><line x1="5" y1="19" x2="19" y2="5" stroke-dasharray="2 2"/></svg><span class="dt-cap">Fib</span>
+      </button>
+      <button type="button" class="btn icon dt" id="channel-btn" aria-pressed="false" aria-label="Parallel channel" data-tip="Parallel channel: two points for the first line, a third for the width">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 15L15 4M9 20L21 9"/></svg><span class="dt-cap">Channel</span>
+      </button>
+      <button type="button" class="btn icon dt" id="text-btn" aria-pressed="false" aria-label="Text note" data-tip="Text note: click where it goes, then type it">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 6h14M12 6v13"/></svg><span class="dt-cap">Note</span>
+      </button>
+      <span class="dt-sep" aria-hidden="true"></span>
+      <button type="button" class="btn icon dt" id="draw-clear-btn" aria-label="Clear all drawings" data-tip="Clear every drawing on this chart">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg><span class="dt-cap">Clear</span>
+      </button>
+      <span class="dt-sep dt-sep-section" aria-hidden="true"></span>
+      <span class="dt-title" aria-hidden="true">Replay</span>
+      <button type="button" class="btn icon dt dt-replay" id="replay-btn" aria-pressed="false" aria-label="Bar replay" data-tip="Bar replay: click a bar, then step or play forward from it">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5v14M8 12l9-6v12z"/></svg><span class="dt-cap">Start</span>
+      </button>
+    </div>
     <section class="chart-wrap" id="chart-wrap" aria-label="Price chart">
       <div class="progress" aria-hidden="true"></div>
-      <div class="legend" id="legend" aria-live="off"></div>
+      <div class="legend-stack">
+        <div class="legend" id="legend" aria-live="off"></div>
+        <div class="study-legend" id="study-legend" aria-live="off"></div>
+      </div>
+      <div class="osc-label" id="osc-rsi" hidden></div>
+      <div class="osc-label" id="osc-macd" hidden></div>
       <div id="day-lines" aria-hidden="true"></div>
       <div id="measure-overlay" aria-hidden="true"></div>
       <div id="draw-overlay" aria-hidden="true"></div>
       <div id="chart"></div>
+      <div class="replay-bar" id="replay-bar" role="toolbar" aria-label="Bar replay" hidden>
+        <button type="button" class="btn" id="replay-exit" title="Leave replay and return to the live chart">✕ Exit</button>
+        <button type="button" class="btn" id="replay-play" title="Play / pause (Space)">▶</button>
+        <button type="button" class="btn" id="replay-step" aria-label="Step one bar" title="Step one bar (→)">⏭</button>
+        <select id="replay-speed" class="select" aria-label="Replay speed"></select>
+        <span id="replay-label" role="status"></span>
+      </div>
       <div class="chart-state" id="chart-state" role="status">
         <h2 id="chart-state-title"></h2>
         <p id="chart-state-text"></p>
         <button type="button" class="btn" id="chart-state-retry">Try again</button>
       </div>
     </section>
+    <section class="compare-wrap" id="compare-wrap" aria-labelledby="compare-title" hidden>
+      <div class="compare-head">
+        <h2 class="sr-only" id="compare-title">Compare</h2>
+        <div class="compare-search">
+          <input id="compare-input" class="compare-input" type="text" aria-label="Symbol to compare" placeholder="Stock, index, crypto…" autocomplete="off" spellcheck="false">
+          <div class="results" id="compare-results" role="listbox"></div>
+        </div>
+        <span id="compare-price"></span>
+        <span class="spacer"></span>
+        <button type="button" class="btn icon" id="compare-close" aria-label="Close compare chart">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div class="compare-sub"><span class="legend" id="compare-legend"></span><span id="compare-note"></span></div>
+      <div class="compare-perf" id="compare-perf"></div>
+      <div class="compare-chart" id="compare-chart"></div>
+    </section>
+    </div>
 
     <footer class="statusbar">
       <div class="seg" id="range-bar" role="group" aria-label="History range">
         <button type="button" data-range="1D" aria-pressed="true">1D</button>
-        <button type="button" data-range="5D" aria-pressed="false">5D</button>
+        <button type="button" data-range="1W" aria-pressed="false" title="The last 7 days">1W</button>
         <button type="button" data-range="1M" aria-pressed="false">1M</button>
         <button type="button" data-range="3M" aria-pressed="false">3M</button>
         <button type="button" data-range="6M" aria-pressed="false">6M</button>
@@ -150,6 +217,70 @@
     </footer>
   </div>
 
+  <aside class="screener" id="screener" aria-labelledby="screener-title" hidden>
+    <div class="news-head">
+      <h2 id="screener-title">Screener</h2>
+      <span class="news-updated" id="scr-updated"></span>
+      <button type="button" class="btn icon" id="screener-close" aria-label="Close screener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="scr-controls">
+      <select id="scr-universe" class="select" aria-label="Stock universe">
+        <option value="nifty50">NIFTY 50</option>
+        <option value="bank">NIFTY BANK</option>
+        <option value="nifty500">NIFTY 500</option>
+        <option value="total">NIFTY Total Market (~750)</option>
+      </select>
+      <select id="scr-preset" class="select" aria-label="Screen preset"></select>
+      <button type="button" class="btn" id="scr-filters-btn" aria-expanded="false" aria-controls="scr-filters">Filters</button>
+    </div>
+    <div class="scr-filters" id="scr-filters" hidden></div>
+    <div class="scr-status" id="scr-status" role="status"></div>
+    <div class="scr-table-wrap">
+      <table class="opt-table scr-table">
+        <thead id="scr-head"></thead>
+        <tbody id="scr-body"></tbody>
+      </table>
+    </div>
+  </aside>
+
+  <aside class="screener bonds" id="bonds" aria-labelledby="bonds-title" hidden>
+    <div class="news-head">
+      <h2 id="bonds-title">Bonds</h2>
+      <span class="feed-pill" id="bond-status" data-live="false">—</span>
+      <button type="button" class="btn icon" id="bonds-close" aria-label="Close bonds panel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="scr-controls">
+      <div class="seg" id="bond-tabs" role="group" aria-label="Bond market">
+        <button type="button" data-tab="global" aria-pressed="true" title="Government bond yields, 37 countries, every maturity CNBC carries">Global</button>
+        <button type="button" data-tab="india" aria-pressed="false" title="Indian G-secs, SDLs, T-bills (CCIL NDS-OM) and NSE-listed corporate bonds">India</button>
+      </div>
+    </div>
+    <div class="bond-global scr-table-wrap" id="bond-global" aria-live="off"></div>
+    <div class="bond-india" id="bond-india" hidden>
+      <div class="scr-controls">
+        <div class="seg" id="bond-seg" role="group" aria-label="Indian bond segment">
+          <button type="button" data-seg="cg" aria-pressed="true" title="Central government securities (NDS-OM)">G-sec</button>
+          <button type="button" data-seg="sdl" aria-pressed="false" title="State development loans (NDS-OM)">SDL</button>
+          <button type="button" data-seg="tbill" aria-pressed="false" title="Treasury bills (NDS-OM)">T-Bill</button>
+          <button type="button" data-seg="wi" aria-pressed="false" title="When-issued securities (NDS-OM)">WI</button>
+          <button type="button" data-seg="corp" aria-pressed="false" title="Corporate bonds listed on NSE">Corporate</button>
+        </div>
+        <label class="bond-opt"><input type="checkbox" id="bond-traded-only" checked> Traded today</label>
+        <span class="scr-status" id="bond-count" role="status"></span>
+      </div>
+      <div class="scr-table-wrap">
+        <table class="opt-table scr-table bond-table">
+          <thead id="bond-head"></thead>
+          <tbody id="bond-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </aside>
+
   <aside class="news" id="news" aria-label="News for the current symbol">
     <div class="news-head">
       <h2 id="news-title">News</h2>
@@ -157,6 +288,36 @@
     </div>
     <div class="news-list" id="news-list" aria-live="off"></div>
   </aside>
+  <nav class="app-strip" aria-label="Panels and app">
+    <button type="button" class="btn icon tool" id="news-btn" aria-pressed="true" aria-label="Toggle news panel" title="News for the symbol on the chart">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5h11a1 1 0 0 1 1 1v13H6a1 1 0 0 1-1-1V5zM17 9h2a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-2M8 9h6M8 12h6M8 15h4"/></svg><span class="cap">News</span>
+    </button>
+    <button type="button" class="btn icon tool" id="screener-btn" aria-pressed="false" aria-label="Stock screener" title="Screen NSE stocks by price, volume, 52-week range, RSI and moving averages">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></svg><span class="cap">Screener</span>
+    </button>
+    <button type="button" class="btn icon tool" id="bonds-btn" aria-pressed="false" aria-label="Bond market" title="Live Indian G-secs (CCIL NDS-OM) and real-time 10-year yields for India, US, UK, Japan, China, Germany">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19h16M5 15l4-4 3 3 7-7M15 7h4v4"/></svg><span class="cap">Bonds</span>
+    </button>
+    <button type="button" class="btn icon tool" id="fno-btn" aria-label="Futures and option chain" title="Futures and option chain for the symbol on the chart (NSE)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20V11M11 20V5M17 20v-6M3 20h18"/></svg><span class="cap">Options</span>
+    </button>
+    <button type="button" class="btn icon tool" id="movers-btn" aria-label="Top movers" title="Top gainers and losers">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l5-5 4 4 8-8M14 8h6v6"/></svg><span class="cap">Movers</span>
+    </button>
+    <button type="button" class="btn icon tool" id="compare-btn" aria-pressed="false" aria-label="Compare with another symbol" title="Open a second chart beside this one to compare two symbols">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="8" height="16" rx="1"/><rect x="13" y="4" width="8" height="16" rx="1"/></svg><span class="cap">Compare</span>
+    </button>
+    <span class="dt-spacer"></span>
+    <button type="button" class="btn icon tool" id="export-btn" aria-label="Download data" title="Download OHLCV data or schedule an end-of-day export">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg><span class="cap">Download</span>
+    </button>
+    <button type="button" class="btn icon tool" id="theme-toggle" aria-label="Toggle light/dark theme" title="Toggle light/dark theme">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/><circle cx="12" cy="12" r="4"/></svg><span class="cap">Theme</span>
+    </button>
+    <button type="button" class="btn icon tool" id="refresh" aria-label="Refresh data" title="Refresh data">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg><span class="cap">Refresh</span>
+    </button>
+  </nav>
 </div>
 
 <div class="backdrop" id="move-modal">
@@ -295,6 +456,8 @@
       <div class="seg" id="fno-tabs" role="group" aria-label="Options view">
         <button type="button" data-tab="fut" aria-pressed="true">Futures</button>
         <button type="button" data-tab="chain" aria-pressed="false">Option chain</button>
+        <button type="button" data-tab="smile" aria-pressed="false" title="Implied volatility across strikes">IV smile</button>
+        <button type="button" data-tab="payoff" aria-pressed="false" title="Build a strategy and see its profit/loss at expiry">Payoff</button>
       </div>
       <select id="fno-expiry" class="select" aria-label="Option expiry" hidden></select>
       <select id="fno-window" class="select" aria-label="Strikes shown" hidden>

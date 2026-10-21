@@ -221,3 +221,11 @@ def test_candles_serve_intraday_for_1d_and_daily_otherwise(monkeypatch):
     assert daily["interval"] == "1d" and daily["candles"][0]["time"] == 2
     with pytest.raises(ValueError):
         fno.candles("IWP.NS", "1m", "1D")
+
+
+def test_parse_lots_reads_the_nearest_month_and_skips_blank_months():
+    text = ("UNDERLYING   ,SYMBOL    ,OCT-26 ,NOV-26 \n"
+            "NIFTY 50     ,NIFTY     ,65     ,65     \n"
+            "SOME STOCK   ,NEWCO     ,       ,500    \n"
+            "Symbol       ,          ,       ,       \n")
+    assert fno.parse_lots(text) == {"NIFTY": 65, "NEWCO": 500}

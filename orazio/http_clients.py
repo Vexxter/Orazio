@@ -27,3 +27,12 @@ naver_http.headers.update({**_UA, "Referer": "https://finance.naver.com"})
 # (see twse_index_quote in market_data.py) — otherwise it answers with an empty array.
 twse_http = requests.Session()
 twse_http.headers.update({**_UA, "Referer": "https://mis.twse.com.tw/stock/index.jsp"})
+
+# CCIL's NDS-OM market watch sits behind Akamai: the data call only answers once the session holds the
+# cookies its own page sets (bonds.py warms it up, and again whenever a call comes back non-JSON).
+ccil_http = requests.Session()
+ccil_http.headers.update({**_UA, "Referer": "https://www.ccilindia.com/market-watch",
+                          "X-Requested-With": "XMLHttpRequest", "Accept": "application/json, text/javascript, */*"})
+
+cnbc_http = requests.Session()
+cnbc_http.headers.update(_UA)

@@ -2,7 +2,7 @@
 // NSE keeps serving the last window's snapshot after pre-open closes, so every view
 // states whether it is live or a snapshot and when it was stamped.
 import { fmtCountdown } from './cas-panel.js';
-import { $, esc } from './state.js';
+import { $, esc, visible } from './state.js';
 
 const feedModal = $('feed-modal');
 let feedRows = [], feedKey = 'FO', feedFilter = '', feedLadderFor = null;
@@ -46,7 +46,7 @@ function openCasFeed() {
   $('feed-close').focus();
   loadCasFeed();
   clearInterval(feedPoll);
-  feedPoll = setInterval(loadCasFeed, 3000);
+  feedPoll = setInterval(visible(loadCasFeed), 3000);
 }
 function closeCasFeed() {
   feedModal.classList.remove('open');
