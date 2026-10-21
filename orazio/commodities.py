@@ -25,7 +25,7 @@ API = "https://fapi.binance.com/fapi/v1"
 SYMBOLS = {"CL=F": "CLUSDT", "BZ=F": "BZUSDT", "GC=F": "XAUUSDT", "SI=F": "XAGUSDT", "NG=F": "NATGASUSDT", "HG=F": "COPPERUSDT"}
 KLINE_LIMIT = 1500
 INTRADAY_LADDER = ("1m", "5m", "15m", "1h")
-RANGE_SECONDS = {"1D": 86400, "5D": 5 * 86400, "1M": 31 * 86400}   # a 24/7 market: "1D" is the last 24 hours
+RANGE_SECONDS = {"1D": 86400, "1W": 7 * 86400, "1M": 31 * 86400}   # a 24/7 market: "1D" is the last 24 hours
 _HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36"}
 
 

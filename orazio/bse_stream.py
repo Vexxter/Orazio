@@ -31,11 +31,13 @@ from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from cryptography.x509.oid import AuthorityInformationAccessOID, ExtensionOID
 
+from .cas_rebuild import parse_eq_frame
 from .constants import IST
 
 HOST = "bnotification.bseindia.com"
 URI = f"wss://{HOST}/socket.io/?EIO=4&transport=websocket"
-CHANNELS = ("SenSexValue", "SensexIndicativePrice")
+# EQ30SCWeb: the 30 SENSEX stocks, each with its live closing-auction price (see cas_rebuild.py).
+CHANNELS = ("SenSexValue", "SensexIndicativePrice", "EQ30SCWeb")
 CHAIN_FILE = os.path.join(tempfile.gettempdir(), "orazio_bse_chain.pem")
 
 
@@ -97,6 +99,7 @@ class BseStream:
         self.latest = None                 # most recent parsed SENSEX tick
         self.latest_at = 0.0               # wall-clock time we received it
         self.history = deque(maxlen=20000)  # (epoch, value, indicative_close)
+        self.scrips = {}                    # BSE code -> (indicative auction price, last price, received at)
         self.connected = False
         self.last_error = None
         self._started = False
@@ -119,6 +122,12 @@ class BseStream:
     def series(self, limit=900):
         with self._lock:
             return list(self.history)[-limit:]
+
+    def scrip_prices(self, max_age=30):
+        """{BSE code: (indicative price, last price, t)} for SENSEX stocks heard from in the last `max_age` s."""
+        now = time.time()
+        with self._lock:
+            return {c: v for c, v in self.scrips.items() if now - v[2] < max_age}
 
     # ---- connection loop ------------------------------------------------------
     async def _forever(self):
@@ -162,6 +171,9 @@ class BseStream:
     def _handle(self, frame):
         try:
             event, payload = json.loads(frame)
+            if event == "Equity30SCW":
+                self._handle_scrip(payload)
+                return
             if event != "SensexIndicativePrice":
                 return
             d = json.loads(payload) if isinstance(payload, str) else payload
@@ -189,3 +201,13 @@ class BseStream:
                 self._on_tick(tick)
             except Exception:
                 pass  # a consumer bug must never take the stream down
+
+    def _handle_scrip(self, payload):
+        """One SENSEX stock's delta frame; a '-' field means unchanged, so keep what we had."""
+        parsed = parse_eq_frame(payload)
+        if not parsed:
+            return
+        code, iep, price = parsed
+        with self._lock:
+            old_iep, old_price, _t = self.scrips.get(code, (None, None, 0))
+            self.scrips[code] = (iep or old_iep, price or old_price, time.time())

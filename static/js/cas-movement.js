@@ -2,7 +2,7 @@
 // Every chart is measured against the REFERENCE: the last value at 15:14:59, the final traded
 // value before continuous trading stops. A baseline series draws green above it, red below it.
 import { CAS_PHASE_NAME, fmtCountdown } from './cas-panel.js';
-import { $, COLORS, alpha, dayKey, esc, istHms, timeFmt, token } from './state.js';
+import { $, COLORS, alpha, dayKey, esc, istHms, timeFmt, token, visible } from './state.js';
 
 const moveModal = $('move-modal');
 let movePoll = null, moveTrigger = null;
@@ -25,6 +25,7 @@ function buildQuads() {
         <div class="quad-id"><b>${alias}</b><span>${esc(name)}</span></div>
         <div class="quad-val"><span class="num quad-num">–</span><span class="num quad-delta">–</span></div>
         <em class="move-tag">Last</em>
+        <div class="quad-impl" hidden></div>
       </header>
       <div class="quad-chart" id="quad-chart-${alias}"></div>
       <footer class="quad-foot"><span class="quad-ref">Reference locks at 15:14:59</span><span class="quad-src"></span></footer>
@@ -50,7 +51,12 @@ function buildQuads() {
       bottomFillColor1: alpha(COLORS.down, 0.04), bottomFillColor2: alpha(COLORS.down, 0.32),
       priceLineVisible: false, lastValueVisible: true,
     });
-    moveCharts[alias] = { chart, series, refLine: null, refValue: null };
+    // Futures-implied close (NIFTY, BANKNIFTY): dashed, on the same scale as the index.
+    const implied = chart.addLineSeries({ color: token('--accent'), lineWidth: 2, lineStyle: LightweightCharts.LineStyle.Dashed,
+      priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: false });
+    // Rebuilt from BSE's live auction prices of the constituents (NIFTY, BANKNIFTY, NIFTY IT): the real-time line.
+    const rebuilt = chart.addLineSeries({ color: '#ab47bc', lineWidth: 2, priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: false });
+    moveCharts[alias] = { chart, series, implied, rebuilt, refLine: null, refValue: null };
   }
 }
 
@@ -112,6 +118,22 @@ function renderMove(d) {
         lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: 'REF 15:14:59' }) : null;
       q.refValue = ref;
     }
+    const line = (pts) => (pts && pts.length ? timeline(pts.map(([t, v]) => [t, v, null]), from, to, nowSec).filter(p => p.value !== undefined) : []);
+    const est = idx.implied, reb = idx.rebuilt;
+    q.implied.setData(line(est && est.points));
+    q.rebuilt.setData(line(reb && reb.points));
+    const impl = card.querySelector('.quad-impl');
+    const parts = [];
+    if (reb && reb.value != null && ref !== null) {
+      const d = reb.value - ref, up = d >= 0;
+      parts.push(`<span class="impl-k reb" title="${esc(reb.source)}. Updates every 2 s: NSE's auction price per stock, carried forward between NSE's prints by BSE's live auction. ${Math.round(reb.coverage * 100)}% of the index has an auction price so far; the rest counts at its last price. Composition fit error ${reb.fitRmse} pts.">Live · rebuilt</span> <b class="num reb">${reb.value.toFixed(2)}</b> <span class="num ${up ? 'up' : 'down'}">${up ? '+' : ''}${d.toFixed(2)} vs ref</span> <span class="impl-age">${istHms.format(new Date(reb.t * 1000))} · ${Math.round(reb.coverage * 100)}% priced</span>`);
+    }
+    if (est && est.value != null) {
+      const up = est.changeVsRef >= 0;
+      parts.push(`<span class="impl-k" title="${esc(est.source)}. Futures trade through the auction (until 15:40); NSE's public futures feed updates about once a minute.">FUT-implied</span> <b class="num">${est.value.toFixed(2)}</b> <span class="num ${up ? 'up' : 'down'}">${up ? '+' : ''}${est.changeVsRef.toFixed(2)} vs ref</span> <span class="impl-age">${istHms.format(new Date(est.t * 1000))} · basis ${est.basis.toFixed(2)}</span>`);
+    }
+    impl.hidden = !parts.length;
+    impl.innerHTML = parts.join('<br>');
     try { q.chart.timeScale().setVisibleRange({ from, to }); } catch (e) { /* no data yet */ }
 
     card.querySelector('.quad-num').textContent = cur === null || cur === undefined ? '–' : Number(cur).toFixed(2);
@@ -149,7 +171,7 @@ function openMove() {
   buildQuads();
   loadMove();
   clearInterval(movePoll);
-  movePoll = setInterval(loadMove, 2000);
+  movePoll = setInterval(visible(loadMove), 2000);
 }
 function closeMove() {
   moveModal.classList.remove('open');

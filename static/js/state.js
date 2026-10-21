@@ -11,7 +11,9 @@ export const dateFmt = new Intl.DateTimeFormat('en-IN', { timeZone: IST, day: '2
 export const dateTimeFmt = new Intl.DateTimeFormat('en-IN', { timeZone: IST, day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
 export const clockFmt = new Intl.DateTimeFormat('en-GB', { timeZone: IST, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
 export const istHms = new Intl.DateTimeFormat('en-GB', { timeZone: IST, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-export const INTERVAL_LABEL = { '1m': '1m', '5m': '5m', '15m': '15m', '1h': '1h', '1d': '1D' };
+export const INTERVAL_LABEL = { '1m': '1m', '5m': '5m', '15m': '15m', '1h': '1h', '1d': '1D', '1wk': '1W' };
+// Daily and weekly bars: dated (not timed) axis labels, no session lines, no intraday scroll-back.
+export const isDaily = (interval) => interval === '1d' || interval === '1wk';
 export const INTERVAL_SECONDS = { '1m': 60, '5m': 300, '15m': 900, '1h': 3600 };
 
 export { esc } from './format.js';
@@ -88,9 +90,29 @@ export const state = {
   // Where the bars on screen came from ('binance' or null = the default Yahoo path), and whether the
   // live quote may be painted onto the newest candle (see refresh-policy.js shouldFoldLiveTick).
   candleSource: null,
-  commodityFeed: 'binance',     // which source the user picked for commodities: 'binance' (live) or 'yahoo' (CME, ~10 min late)
+  commodityFeed: 'spot',        // commodity source: 'spot' (the default) or 'futures' (Hyperliquid oracle / Binance)
   liveFold: true,
+  decimals: 2,                  // price precision of the chart on screen (3 for bond yields; set by loadCandles)
+  candlesFor: null,             // the symbol whose bars latestCandles holds (lags currentSymbol during a switch)
+  styleBeforeLine: null,        // candle/bar style to restore after a close-only chart forced a line
+  // Bar replay (replay.js): null, or { full: every loaded bar, idx: the last one revealed }. While set,
+  // latestCandles holds only the revealed bars and live data leaves the chart alone.
+  replay: null,
+  // Indicator settings (studies.js), persisted in prefs. Each moving average has its own timeframe:
+  // 'chart' = the chart's bars, or '5m'/'15m'/'1h'/'1d'/'1w' for e.g. a 200-day SMA on a 5-minute chart.
+  studies: {
+    ma: [
+      { on: false, type: 'sma', len: 20, tf: 'chart' },
+      { on: false, type: 'sma', len: 50, tf: 'chart' },
+      { on: false, type: 'sma', len: 200, tf: 'chart' },
+    ],
+    vwap: false, bb: false, rsi: false, macd: false,
+  },
 };
+
+// Wraps a timer callback so it skips while the tab is hidden: nobody is looking, so polling NSE/Yahoo
+// and repainting overlays is pure waste. Each poller catches up on its next tick after the tab returns.
+export const visible = (fn) => () => { if (!document.hidden) fn(); };
 
 export function unsuppressSoon() {
   setTimeout(() => { state.suppressRangeEvents = false; }, 80);

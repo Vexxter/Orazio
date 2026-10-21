@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from orazio import cas
 from orazio.cas import cas_phase, normalise_cas_book, normalise_cas_rows
 from orazio.constants import IST
 
@@ -76,3 +77,29 @@ def test_normalise_cas_book_flags_the_equilibrium_rung():
 
 def test_normalise_cas_book_handles_non_list_input():
     assert normalise_cas_book(None) == []
+
+
+# ---- futures-implied auction close ----------------------------------------------------
+def test_futures_implied_holds_the_15_14_59_basis_fixed():
+    ref_epoch = 1_000_000
+    ticks = [(ref_epoch - 30, 22800.0), (ref_epoch - 2, 22810.0), (ref_epoch + 5, 22830.0), (ref_epoch + 60, 22790.5)]
+    est = cas.futures_implied(ticks, ref_epoch, spot_ref=22700.0)
+    assert est["futRef"] == 22810.0 and est["basis"] == 110.0
+    assert est["points"] == [(ref_epoch + 5, 22720.0), (ref_epoch + 60, 22680.5)]
+
+
+def test_futures_implied_needs_a_recent_print_at_the_reference():
+    ref_epoch = 1_000_000
+    assert cas.futures_implied([(ref_epoch - 500, 22800.0), (ref_epoch + 5, 22830.0)], ref_epoch, 22700.0) is None
+    assert cas.futures_implied([(ref_epoch - 5, 22800.0)], ref_epoch, None) is None
+
+
+def test_implied_close_only_for_indices_with_futures(monkeypatch):
+    now = datetime(2026, 10, 14, 15, 20, tzinfo=IST)
+    ref_epoch = cas.cas_reference_epoch(now)
+    monkeypatch.setattr(cas.fno, "front_ticks", lambda u: [(ref_epoch - 1, 100.0), (ref_epoch + 30, 101.5)])
+    ref = {"value": 90.0, "t": ref_epoch, "source": "x"}
+    est = cas.implied_close("NIFTY", now, ref)
+    assert est["value"] == 91.5 and est["changeVsRef"] == 1.5 and est["t"] == ref_epoch + 30
+    assert cas.implied_close("NIFTYIT", now, ref) is None
+    assert cas.implied_close("NIFTY", now, None) is None

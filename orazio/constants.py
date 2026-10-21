@@ -15,6 +15,7 @@ SYMBOL_ALIASES = {
     "BANKNIFTY": "^NSEBANK",
     "SENSEX": "^BSESN",
     "NIFTYIT": "^CNXIT",
+    "NIFTYMIDCAP": "NIFTY_MIDCAP_100.NS",
     "SPX": "^GSPC",
     "NASDAQ": "^IXIC",
     "DOWJONES": "^DJI",
@@ -23,7 +24,8 @@ SYMBOL_ALIASES = {
     "CHINA": "000300.SS",  # CSI 300 — mainland China's main broad-market index
     "SSE": "000001.SS",    # Shanghai Composite — kept alongside CSI 300, not instead of it
     # Commodities: front-month futures (Yahoo delays these ~10 min, like the index futures below).
-    "CRUDE": "CL=F", "BRENT": "BZ=F", "GOLD": "GC=F", "SILVER": "SI=F", "NATGAS": "NG=F", "COPPER": "HG=F",
+    # "WTI" is also the NYSE ticker of W&T Offshore; in this app it means crude.
+    "CRUDE": "CL=F", "WTI": "CL=F", "USOIL": "CL=F", "BRENT": "BZ=F", "UKOIL": "BZ=F", "GOLD": "GC=F", "SILVER": "SI=F", "NATGAS": "NG=F", "COPPER": "HG=F",
     # Crypto trades 24/7 and Yahoo's quotes for it are live.
     "BTC": "BTC-USD", "ETH": "ETH-USD", "BNB": "BNB-USD", "SOL": "SOL-USD", "XRP": "XRP-USD", "DOGE": "DOGE-USD",
 }
@@ -58,16 +60,18 @@ FUTURES_META = {
 }
 
 # Range presets, ordered from shortest to longest. Each maps to the yfinance `period` arg.
-RANGE_ORDER = ["1D", "5D", "1M", "3M", "6M", "YTD", "1Y", "5Y", "ALL"]
+RANGE_ORDER = ["1D", "1W", "1M", "3M", "6M", "YTD", "1Y", "5Y", "ALL"]
 RANGE_TO_PERIOD = {
-    "1D": "1d", "5D": "5d", "1M": "1mo", "3M": "3mo", "6M": "6mo",
+    "1D": "1d", "1W": "7d", "1M": "1mo", "3M": "3mo", "6M": "6mo",
     "YTD": "ytd", "1Y": "1y", "5Y": "5y", "ALL": "max",
 }
 
 # Bar size ladder, coarsest fallback last. Yahoo's actual intraday history limits:
 # 1m ~7 days, 5m/15m ~60 days, 1h ~2 years, 1d unlimited.
-INTERVAL_LADDER = ["1m", "5m", "15m", "1h", "1d"]
-INTERVAL_MAX_RANGE = {"1m": "5D", "5m": "1M", "15m": "1M", "1h": "1Y", "1d": "ALL"}
+INTERVAL_LADDER = ["1m", "5m", "15m", "1h", "1d", "1wk"]
+INTERVAL_MAX_RANGE = {"1m": "1W", "5m": "1M", "15m": "1M", "1h": "1Y", "1d": "ALL", "1wk": "ALL"}
+# "1W" (7 calendar days: a full week for 24/7 crypto too) replaced "5D"; old links/clients may still send 5D.
+RANGE_ALIASES = {"5D": "1W"}
 
 # Real yfinance intraday ceilings per bar size — how far back a lazy-load ("drag left")
 # request can reach before there's simply no more data to fetch.

@@ -28,6 +28,11 @@ def isolated_state(tmp_path, monkeypatch):
     monkeypatch.setattr(gift_nifty, "CACHE_DIR", tmp_path / "gift_cache")
     monkeypatch.setattr(live_volume, "SEED_FILE", str(tmp_path / "live_volume_seed.json"))
     monkeypatch.setattr(cas, "SEED_FILE", str(tmp_path / "cas_seed.json"))
+    from orazio import cas_rebuild, technicals
+    monkeypatch.setattr(cas_rebuild, "FIT_FILE", tmp_path / "index_fit.json")
+    monkeypatch.setattr(technicals, "CACHE_FILE", tmp_path / "technicals.json")
+    from orazio import gsec
+    monkeypatch.setattr(gsec, "TICK_DIR", tmp_path / "gsec_ticks")
     return tmp_path
 
 

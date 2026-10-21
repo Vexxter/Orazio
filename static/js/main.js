@@ -5,10 +5,11 @@ import { streamHealthy } from './live-quote.js';
 import { loadPrefs, savePrefs } from './prefs.js';
 import { shouldAutoRefresh } from './refresh-policy.js';
 import { shouldPoll } from './stream-policy.js';
+import { restoreStudies } from './studies.js';
 import { loadCas } from './cas-panel.js';
 import { loadBreadth, loadConfig } from './rail.js';
 import { applyTheme } from './theme.js';
-import { $, state } from './state.js';
+import { $, state, visible } from './state.js';
 import { setIntervalUI } from './ui.js';
 
 // Side-effect-only modules: each wires its own DOM listeners on import.
@@ -24,17 +25,19 @@ import './export.js';
 import './news.js';
 import './symbol-name.js';
 import './fno.js';
+import './compare.js';
+import './replay.js';
+import './screener.js';
+import './bonds.js';
 
 $('chart-state-retry').addEventListener('click', () => loadCandles());
 
 document.querySelectorAll('#interval-seg button').forEach(btn => {
   btn.addEventListener('click', () => { setIntervalUI(btn.dataset.interval); loadCandles({ interval: btn.dataset.interval }); });
 });
-$('style').addEventListener('change', (e) => { applyStyle(e.target.value); savePrefs(); });
+$('style').addEventListener('change', (e) => { state.styleBeforeLine = null; applyStyle(e.target.value); savePrefs(); });
 $('refresh').addEventListener('click', () => loadCandles());
-for (const id of ['sma20', 'sma50', 'sma200', 'vol']) {
-  $(id).addEventListener('change', () => { renderIndicators(); savePrefs(); });
-}
+$('vol').addEventListener('change', () => { renderIndicators(); savePrefs(); });
 document.querySelectorAll('#range-bar button').forEach(btn => {
   // Always request the finest interval as a baseline — the backend escalates to a
   // coarser one only if that range genuinely can't be served at 1m. Without this, a
@@ -49,9 +52,7 @@ document.querySelectorAll('#range-bar button').forEach(btn => {
   if (p.symbol) { state.currentSymbol = String(p.symbol).toUpperCase(); }
   $('symbol-input').value = state.currentSymbol;
   if (p.style && priceSeriesByStyle[p.style]) { $('style').value = p.style; applyStyle(p.style); }
-  if (typeof p.sma20 === 'boolean') $('sma20').checked = p.sma20;
-  if (typeof p.sma50 === 'boolean') $('sma50').checked = p.sma50;
-  if (typeof p.sma200 === 'boolean') $('sma200').checked = p.sma200;
+  restoreStudies(p);
   if (typeof p.vol === 'boolean') $('vol').checked = p.vol;
   applyTheme(p.theme === 'light' ? 'light' : 'dark');
 })();
@@ -65,7 +66,7 @@ setInterval(() => { if (shouldPoll({ streamHealthy: streamHealthy(), quotesInFli
 setInterval(() => {
   if (shouldAutoRefresh({ isLoading: $('chart-wrap').classList.contains('is-loading'), tabHidden: document.hidden })) loadCandles({ preserveView: true });
 }, 60000);
-setInterval(loadBreadth, 5000);
+setInterval(visible(loadBreadth), 5000);
 
 $('theme-toggle').addEventListener('click', () => {
   applyTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');

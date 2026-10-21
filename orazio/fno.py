@@ -24,6 +24,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import pandas as pd
+import requests
 
 from .cache import cached
 from .constants import IST, INTERVAL_SECONDS
@@ -33,6 +34,7 @@ from .nse_client import nse_get
 QUOTE_API = "/api/NextApi/apiClient/GetQuoteApi"
 CACHE_DIR = Path.home() / ".orazio" / "fut_cache"
 ARCHIVE_URL = "https://nsearchives.nseindia.com/content/fo/BhavCopy_NSE_FO_0_0_0_{day}_F_0000.csv.zip"
+LOTS_URL = "https://nsearchives.nseindia.com/content/fo/fo_mktlots.csv"
 DAILY_FETCH_BUDGET_SEC = 25
 MAX_DAILY_CALENDAR_DAYS = 730
 _pool = ThreadPoolExecutor(max_workers=6, thread_name_prefix="fut-archive")
@@ -154,14 +156,24 @@ def _ticks(identifier):
     return cached(("fno-ticks", identifier), 5, fetch)
 
 
-def intraday_bars(underlying, step):
-    rows, _spot, _ts = futures(underlying)
+def front_ticks(underlying):
+    """Today's ticks of the front-month future as [(epoch, price)], oldest first, with the quote API's
+    latest price appended when it is newer than the tick chart's last point."""
+    rows, _spot, ts = futures(underlying)
     if not rows:
         return []
+    # NSE stamps these in "IST as if it were UTC" — shift back to a real epoch.
+    ticks = [(int(ms / 1000) - 19800, float(price)) for ms, price in _ticks(rows[0]["identifier"])]
+    stamp = _stamp(ts)
+    last = rows[0].get("last")
+    if last is not None and (not ticks or stamp > ticks[-1][0]):
+        ticks.append((stamp, float(last)))
+    return ticks
+
+
+def intraday_bars(underlying, step):
     buckets = {}
-    for ms, price in _ticks(rows[0]["identifier"]):
-        # NSE stamps these in "IST as if it were UTC" — shift back to a real epoch.
-        t = int(ms / 1000) - 19800
+    for t, price in front_ticks(underlying):
         slot = t // step * step
         b = buckets.get(slot)
         if b is None:
@@ -264,7 +276,7 @@ def _iso(s):
     return date.fromisoformat(s)
 
 
-RANGE_DAYS = {"1D": 1, "5D": 7, "1M": 31, "3M": 92, "6M": 183, "1Y": 366, "5Y": MAX_DAILY_CALENDAR_DAYS, "ALL": MAX_DAILY_CALENDAR_DAYS}
+RANGE_DAYS = {"1D": 1, "1W": 7, "1M": 31, "3M": 92, "6M": 183, "1Y": 366, "5Y": MAX_DAILY_CALENDAR_DAYS, "ALL": MAX_DAILY_CALENDAR_DAYS}
 
 
 def candles(symbol, interval, rng):
@@ -279,9 +291,36 @@ def candles(symbol, interval, rng):
             return {"symbol": res["fut"], "interval": interval, "range": rng, "candles": bars, "liveBars": 0}
     today = datetime.now(IST).date()
     days = RANGE_DAYS.get(rng) if rng != "YTD" else (today - date(today.year, 1, 1)).days + 1
-    # A 1D/5D view at daily resolution would be one or two bars; show a couple of weeks instead.
+    # A 1D/1W view at daily resolution would be one or two bars; show a couple of weeks instead.
     days = max(days or 31, 14)
     return {"symbol": res["fut"], "interval": "1d", "range": rng, "candles": daily_bars(res["underlying"], days), "liveBars": 0}
+
+
+# ---------------------------------------------------------------------------
+# Lot sizes (for the payoff calculator)
+# ---------------------------------------------------------------------------
+def parse_lots(text):
+    """NSE's fo_mktlots.csv -> {symbol: lot size of the nearest month}. Columns are space-padded;
+    a month an underlying doesn't trade is blank."""
+    lots = {}
+    for line in text.splitlines()[1:]:
+        cols = [c.strip() for c in line.split(",")]
+        if len(cols) < 3 or not cols[1]:
+            continue
+        size = next((c for c in cols[2:] if c.isdigit()), None)
+        if size:
+            lots[cols[1].upper()] = int(size)
+    return lots
+
+
+def lot_size(underlying):
+    def fetch():
+        try:
+            r = nse_http.get(LOTS_URL, timeout=10)
+            return parse_lots(r.text) if r.status_code == 200 else {}
+        except requests.RequestException:
+            return {}
+    return cached(("fno-lots", ""), 12 * 3600, fetch).get(underlying)
 
 
 # ---------------------------------------------------------------------------
@@ -339,6 +378,6 @@ def panel(symbol, expiry=None):
     rows, spot, ts = futures(res["underlying"])
     return {
         "available": True, "symbol": symbol, "underlying": res["underlying"], "name": res["name"], "kind": res["kind"],
-        "spotSymbol": res["spot"], "futureSymbol": res["fut"], "spot": spot, "asOf": ts,
+        "spotSymbol": res["spot"], "futureSymbol": res["fut"], "spot": spot, "asOf": ts, "lotSize": lot_size(res["underlying"]),
         "futures": rows or [], "chain": chain(res, expiry),
     }

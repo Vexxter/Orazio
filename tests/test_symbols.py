@@ -28,7 +28,8 @@ def test_clean_symbol_defaults_when_blank():
     assert clean_symbol(None) == "^NSEI"
 
 
-@pytest.mark.parametrize("bad", ["'; DROP TABLE", "a" * 21, "SELECT *", "<script>"])
+# 33: the limit is 32 so Indian G-sec chart ids fit ("NDS_0657_GS_2033_17_AUG", gsec.chart_id).
+@pytest.mark.parametrize("bad", ["'; DROP TABLE", "a" * 33, "SELECT *", "<script>"])
 def test_clean_symbol_rejects_anything_outside_the_ticker_charset(bad):
     with pytest.raises(BadRequest):
         clean_symbol(bad)
