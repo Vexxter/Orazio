@@ -95,7 +95,7 @@ def rebucket(minute_bars, step):
     return [{"time": t, "open": o, "high": h, "low": l, "close": c, "volume": 0} for t, (o, h, l, c) in sorted(out.items())]
 
 
-RANGE_DAYS = {"1D": 1, "5D": 5, "1M": 31, "3M": 92, "6M": 183, "YTD": 366, "1Y": 366, "5Y": MAX_DAILY_CALENDAR_DAYS, "ALL": MAX_DAILY_CALENDAR_DAYS}
+RANGE_DAYS = {"1D": 1, "1W": 7, "1M": 31, "3M": 92, "6M": 183, "YTD": 366, "1Y": 366, "5Y": MAX_DAILY_CALENDAR_DAYS, "ALL": MAX_DAILY_CALENDAR_DAYS}
 
 
 def rows_for(minute_bars, interval_step, rng):
@@ -250,7 +250,7 @@ def chart(interval, rng, minute_bars=None):
             rows = rows_for(minute_bars, step, rng)
             if rows:
                 return interval, rows
-    window = max(wanted_days, 14)                      # a 5D view at daily resolution would be 3-5 bars
+    window = max(wanted_days, 14)                      # a 1W view at daily resolution would be 3-5 bars
     history = daily_history(window)
     own = rebucket(minute_bars, 86400) if minute_bars else []
     rows = merge_daily(history, own)

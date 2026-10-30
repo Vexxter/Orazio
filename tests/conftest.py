@@ -17,6 +17,13 @@ def _fresh_cache():
     cache._store.clear()
 
 
+@pytest.fixture(autouse=True)
+def _no_equity_download(monkeypatch):
+    """NSE's equity list (symbol search, screener names) comes from ~/.orazio or the network: neither in tests."""
+    from orazio import symbol_master
+    monkeypatch.setattr(symbol_master, "_equity_text", lambda: "")
+
+
 @pytest.fixture
 def isolated_state(tmp_path, monkeypatch):
     """Redirect every file the app writes (futures archive cache, export schedule, GIFT Nifty bars,
@@ -28,6 +35,19 @@ def isolated_state(tmp_path, monkeypatch):
     monkeypatch.setattr(gift_nifty, "CACHE_DIR", tmp_path / "gift_cache")
     monkeypatch.setattr(live_volume, "SEED_FILE", str(tmp_path / "live_volume_seed.json"))
     monkeypatch.setattr(cas, "SEED_FILE", str(tmp_path / "cas_seed.json"))
+    from orazio import cas_rebuild, technicals
+    monkeypatch.setattr(cas_rebuild, "FIT_FILE", tmp_path / "index_fit.json")
+    monkeypatch.setattr(technicals, "CACHE_FILE", tmp_path / "technicals.json")
+    from orazio import flows
+    monkeypatch.setattr(flows, "FIIDII_FILE", tmp_path / "fiidii.json")
+    monkeypatch.setattr(flows, "OI_DIR", tmp_path / "participant_oi")
+    from orazio import delivery
+    monkeypatch.setattr(delivery, "DIR", tmp_path / "delivery")
+    from orazio import macro
+    monkeypatch.setattr(macro, "MMO_DIR", tmp_path / "rbi_mmo")
+    monkeypatch.setattr(macro, "CAL_FILE", tmp_path / "calendar.json")
+    from orazio import gsec
+    monkeypatch.setattr(gsec, "TICK_DIR", tmp_path / "gsec_ticks")
     return tmp_path
 
 

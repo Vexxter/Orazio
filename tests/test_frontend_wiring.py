@@ -110,9 +110,20 @@ def test_every_script_is_actually_loaded_by_main():
 # ---- UI conventions ----------------------------------------------------------------------
 def test_every_toolbar_button_has_a_visible_name_under_it():
     buttons = re.findall(r'<button[^>]*class="btn[^"]*\btool\b[^"]*"[^>]*id="([^"]+)"[^>]*>(.*?)</button>', HTML, re.S)
-    assert len(buttons) >= 10, "expected the toolbar's icon buttons"
+    assert len(buttons) >= 8, "expected the panel strip's icon buttons"
     nameless = [bid for bid, inner in buttons if not re.search(r'class="(?:cap|label)"[^>]*>\s*[^<\s]', inner)]
     assert not nameless, f"toolbar buttons without a visible caption: {nameless}"
+
+
+def test_every_drawing_strip_button_has_a_name_and_a_hover_label():
+    """The drawing strip is icon-only (like TradingView's): each button needs an accessible name and
+    the data-tip the hover label is drawn from."""
+    strip = HTML[HTML.index('class="draw-strip"'):]
+    strip = strip[:strip.index("</div>")]
+    buttons = re.findall(r"<button[^>]*>", strip)
+    assert len(buttons) >= 10, "expected the drawing tools, Clear and Replay"
+    bad = [b for b in buttons if 'aria-label="' not in b or 'data-tip="' not in b]
+    assert not bad, f"drawing strip buttons missing aria-label/data-tip: {bad}"
 
 
 def test_modals_have_a_close_button_and_an_accessible_title():
@@ -124,15 +135,13 @@ def test_modals_have_a_close_button_and_an_accessible_title():
 
 
 def test_every_rail_alias_has_a_display_name_and_group():
+    from orazio.constants import INDEX_META
     rail = read(JS_DIR / "rail.js")
-    meta_block = rail[rail.index("INDEX_META = {"):rail.index("};", rail.index("INDEX_META = {"))]
-    keys = set(re.findall(r"\b([A-Z][A-Z0-9]*):\s*\[", meta_block))
-    missing = [alias for _label, alias in QUICK_INDICES if alias not in keys]
-    assert not missing, f"rail.js INDEX_META has no entry for: {missing}"
+    missing = [alias for _label, alias in QUICK_INDICES if alias not in INDEX_META]
+    assert not missing, f"constants.INDEX_META has no entry for: {missing}"
     groups = set(re.findall(r"RAIL_GROUPS = \[([^\]]*)\]", rail)[0].replace("'", "").replace(" ", "").split(","))
-    used = set(re.findall(r"\],?\s*(?=[A-Z]|\n|\})", meta_block)) or groups
-    for group in re.findall(r"\[\s*'[^']*',\s*'(\w+)'\s*\]", meta_block):
-        assert group in groups, f"rail group {group!r} is not in RAIL_GROUPS"
+    for _label, alias in QUICK_INDICES:
+        assert INDEX_META[alias][1] in groups, f"rail group {INDEX_META[alias][1]!r} is not in RAIL_GROUPS"
 
 
 def test_movers_tabs_match_the_universes_the_backend_serves():

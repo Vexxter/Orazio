@@ -75,9 +75,9 @@ def test_rebucket_daily_groups_by_indian_day_not_utc_day():
 
 def test_rows_for_keeps_only_the_requested_window_before_the_newest_bar():
     t0 = ist("2026-09-28 10:00")
-    bars = {t0 + d * 86400: [d, d, d, d] for d in range(5)}   # five daily points
+    bars = {t0 + d * 86400: [d, d, d, d] for d in range(9)}   # nine daily points
     assert len(gift_nifty.rows_for(bars, 60, "1D")) == 1
-    assert len(gift_nifty.rows_for(bars, 60, "5D")) == 5
+    assert len(gift_nifty.rows_for(bars, 60, "1W")) == 7      # a week is 7 calendar days
     assert gift_nifty.rows_for({}, 60, "1D") == []
 
 
@@ -110,7 +110,9 @@ def test_load_drops_bars_older_than_retention(isolated_state):
 def test_poll_skips_a_reading_nse_has_not_refreshed(isolated_state, monkeypatch):
     gift_nifty._bars.clear()
     gift_nifty._last_stamp = None
-    reading = gift_nifty.parse_reading(PAYLOAD)
+    # stamped "now": a fixed date would fall outside RETENTION_DAYS and be pruned on the first poll
+    today = {"data": {"giftNifty": {**PAYLOAD["data"]["giftNifty"], "timestmp": datetime.now(IST).strftime("%d-%b-%Y %H:%M")}}}
+    reading = gift_nifty.parse_reading(today)
     monkeypatch.setattr(gift_nifty, "quote", lambda: reading)
     gift_nifty._poll_once()
     gift_nifty._poll_once()                       # same NSE timestamp again: nothing new to fold

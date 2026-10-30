@@ -9,7 +9,7 @@ let source = null;
 let openFor = null;
 let lastEventAt = null;
 
-// The stream is per symbol AND per feed: switching a commodity between Binance and Yahoo reopens it.
+// The stream is per symbol AND per feed: switching a commodity between Spot and Futures reopens it.
 const streamKey = () => state.currentSymbol + currentFeedQuery();
 
 function close() {

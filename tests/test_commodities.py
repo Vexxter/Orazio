@@ -28,11 +28,11 @@ class FakeResponse:
 # ---- which bar sizes Binance should serve --------------------------------------------------
 @pytest.mark.parametrize("requested,rng,expected", [
     ("1m", "1D", "1m"),      # 1440 bars: fits one request
-    ("1m", "5D", "5m"),      # 7200 one-minute bars would not fit: step up to 5m (1440)
+    ("1m", "1W", "15m"),     # a 7-day week: 1m = 10080 and 5m = 2016 bars would not fit; 15m = 672 does
     ("1m", "1M", "1h"),      # 5m = 8928, 15m = 2976 — only 1h (744) fits
     ("5m", "1M", "1h"),
     ("1h", "1M", "1h"),
-    ("15m", "5D", "15m"),
+    ("15m", "1W", "15m"),
     ("1m", "3M", None),      # long ranges stay on Yahoo's multi-year CME history
     ("1d", "1D", None),      # daily bars: Binance only has ~10 months, Yahoo has decades
     ("2m", "1D", None),
@@ -139,21 +139,21 @@ def get_json(client, url, status=200):
 def test_gold_quote_comes_from_binance_when_it_is_up(client, monkeypatch):
     monkeypatch.setattr(commodities, "quote", lambda s: {"price": 4167.4, "prevClose": 4188.5, "marketTime": 1_790_823_773, "currency": "USD"})
     monkeypatch.setattr(market_data, "yahoo_live_quote", lambda s: pytest.fail("Yahoo's delayed CME feed must not be consulted"))
-    d = get_json(client, "/api/quote?symbol=GOLD")
+    d = get_json(client, "/api/quote?symbol=GOLD&feed=binance")
     assert d["source"] == "binance" and d["price"] == 4167.4 and d["change"] == pytest.approx(-21.1)
 
 
 def test_gold_quote_falls_back_to_yahoo_when_binance_is_unreachable(client, monkeypatch):
     monkeypatch.setattr(commodities, "quote", lambda s: None)
     monkeypatch.setattr(market_data, "yahoo_live_quote", lambda s: {"price": 4188.3, "prevClose": 4170.0, "marketTime": 1_790_823_000, "currency": "USD"})
-    d = get_json(client, "/api/quote?symbol=GOLD")
+    d = get_json(client, "/api/quote?symbol=GOLD&feed=binance")
     assert d["source"] == "yahoo" and d["price"] == 4188.3
 
 
 def test_intraday_commodity_charts_are_real_time_binance_bars(client, monkeypatch):
     rows = [{"time": 1, "open": 1.0, "high": 2.0, "low": 0.5, "close": 1.5, "volume": 3.0}]
     monkeypatch.setattr(commodities, "candles", lambda s, i, r: ("5m", rows))
-    d = get_json(client, "/api/candles?symbol=CRUDE&interval=1m&range=5D")
+    d = get_json(client, "/api/candles?symbol=GOLD&interval=1m&range=5D&feed=futures")   # gold futures: Binance
     assert d["source"] == "binance" and d["interval"] == "5m" and d["candles"] == rows
     assert "liveFold" not in d                                              # same instrument as the quote: fold ticks as usual
 
@@ -167,8 +167,9 @@ def test_long_ranges_stay_on_yahoos_cme_history_and_tell_the_page_not_to_fold_li
     import yfinance
     monkeypatch.setattr(commodities, "candles", lambda s, i, r: None)       # Binance declines (long range)
     monkeypatch.setattr(yfinance, "download", lambda *a, **k: frame())
-    d = get_json(client, "/api/candles?symbol=GOLD&interval=1d&range=1Y")
+    d = get_json(client, "/api/candles?symbol=GOLD&interval=1d&range=1Y&feed=binance")
     assert d["liveFold"] is False and "source" not in d and len(d["candles"]) == 2
+    assert d["feed"] == "futures" and "CME" in d["note"]                     # still "Futures", labelled as CME history
 
 
 def test_non_commodity_charts_never_carry_the_fold_flag(client, monkeypatch):

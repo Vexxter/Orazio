@@ -258,10 +258,20 @@ def test_schedule_can_be_saved_and_read_back_from_the_same_origin(client, isolat
 def test_search_shapes_yahoo_results_and_tolerates_failure(client, monkeypatch):
     class R:
         def raise_for_status(self): pass
-        def json(self): return {"quotes": [{"symbol": "RELIANCE.NS", "shortname": "RELIANCE", "exchange": "NSI", "quoteType": "EQUITY"}, {"shortname": "no symbol"}]}
+        def json(self): return {"quotes": [
+            {"symbol": "RELIANCE.NS", "shortname": "RELIANCE", "longname": "Reliance Industries Limited", "exchange": "NSI", "exchDisp": "NSE", "quoteType": "EQUITY"},
+            {"shortname": "no symbol"},
+            {"symbol": "0P00012KBL.BO", "quoteType": "MUTUALFUND"},
+            {"symbol": "INFY270115P00009000", "quoteType": "OPTION"},
+            {"symbol": "BAFL-V2629.BO", "quoteType": "FUTURE"},
+            {"symbol": "CL=F", "shortname": "Crude Oil", "exchange": "NYM", "quoteType": "FUTURE"},
+        ]}
     import requests
     monkeypatch.setattr(requests, "get", lambda *a, **k: R())
-    assert get_json(client, "/api/search?q=reli") == [{"symbol": "RELIANCE.NS", "name": "RELIANCE", "exchange": "NSI", "type": "EQUITY"}]
+    assert get_json(client, "/api/search?q=reli") == [
+        {"symbol": "RELIANCE.NS", "name": "Reliance Industries Limited", "exchange": "NSE", "type": "stock"},
+        {"symbol": "CL=F", "name": "Crude Oil", "exchange": "NYM", "type": "future"},
+    ]
     assert get_json(client, "/api/search?q=") == []
     monkeypatch.setattr(requests, "get", lambda *a, **k: (_ for _ in ()).throw(requests.RequestException("down")))
     assert get_json(client, "/api/search?q=reli") == []

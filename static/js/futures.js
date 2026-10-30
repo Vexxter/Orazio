@@ -6,14 +6,14 @@ import { switchSymbol } from './symbol.js';
 const symbolInput = $('symbol-input');
 
 // NSE: NIFTY, BANKNIFTY and every stock with F&O contracts have a front-month future, charted as
-// "<NAME>-FUT". The stock list comes from NSE itself (/api/fno/symbols).
-const NSE_INDEX_FUTURES = { '^NSEI': 'NIFTY', '^NSEBANK': 'BANKNIFTY' };
+// "<NAME>-FUT". The stock list comes from NSE itself (/api/fno/symbols). SENSEX futures come from BSE.
+const NSE_INDEX_FUTURES = { '^NSEI': 'NIFTY', '^NSEBANK': 'BANKNIFTY', '^BSESN': 'SENSEX' };
 fetch('/api/fno/symbols').then(r => r.json()).then(d => { state.fnoStocks = new Set(d.stocks); updateFuturesToggle(); }).catch(() => {});
 
 export function futuresCounterpart(sym) {
   if (sym.endsWith('-FUT')) {
     const base = sym.slice(0, -4);
-    return { mode: 'futures', to: base === 'NIFTY' || base === 'BANKNIFTY' ? base : `${base}.NS` };
+    return { mode: 'futures', to: Object.values(NSE_INDEX_FUTURES).includes(base) ? base : `${base}.NS` };
   }
   if (NSE_INDEX_FUTURES[sym]) return { mode: 'cash', to: `${NSE_INDEX_FUTURES[sym]}-FUT` };
   if (sym.endsWith('.NS') && state.fnoStocks.has(sym.slice(0, -3)) && /^[A-Z0-9-]+$/.test(sym.slice(0, -3))) {
@@ -25,16 +25,24 @@ export function futuresCounterpart(sym) {
   return cash ? { mode: 'futures', to: (state.CONFIG.futuresMeta[sym] || {}).alias || cash } : null;
 }
 
+const seg = $('futures-toggle');
+
 export function updateFuturesToggle() {
   updateFeedToggle();
   const info = state.resolvedSymbol ? futuresCounterpart(state.resolvedSymbol) : null;
-  $('futures-toggle').classList.toggle('shown', !!info);
-  $('futures').checked = !!info && info.mode === 'futures';
+  seg.hidden = !info;
+  const side = info && info.mode === 'futures' ? 'fut' : 'spot';
+  seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.side === side)));
   // Keep the search box readable when the symbol is a raw futures ticker.
   if (document.activeElement !== symbolInput && state.CONFIG.futuresMeta[state.currentSymbol]) symbolInput.value = displayName(state.currentSymbol);
 }
 
-$('futures').addEventListener('change', () => {
+document.addEventListener('candles:loaded', updateFuturesToggle);
+
+// Spot | Futures: clicking the side already shown does nothing.
+seg.addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-side]');
+  if (!btn || btn.getAttribute('aria-pressed') === 'true') return;
   const info = state.resolvedSymbol ? futuresCounterpart(state.resolvedSymbol) : null;
   if (info) { symbolInput.value = displayName(info.to); switchSymbol(info.to); }
 });

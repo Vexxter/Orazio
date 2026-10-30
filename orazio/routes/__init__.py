@@ -11,10 +11,11 @@ Business logic lives in the service modules (fno.py, news.py, exports.py, ...), 
     auction        /api/cas, /api/cas/movement, /api/cas/feed
     derivatives    /api/fno, /api/fno/symbols
     exports_api    /api/export/*
+    insights       /api/flows and the other Insights hub views
 """
 from flask import Blueprint
 
 bp = Blueprint("orazio", __name__)
 
 # Importing the submodules registers their routes on `bp`.
-from . import auction, charts, derivatives, exports_api, market, pages, stream, symbol_info  # noqa: E402,F401
+from . import auction, charts, derivatives, exports_api, insights, market, pages, stream, symbol_info  # noqa: E402,F401

@@ -167,7 +167,7 @@ def test_daily_bars_pick_the_nearest_unexpired_contract_each_day(monkeypatch):
     near, far = (today + timedelta(days=10)).isoformat(), (today + timedelta(days=40)).isoformat()
     expired = (today - timedelta(days=30)).isoformat()
 
-    def fake_days(days):
+    def fake_days(days, bse=False):
         return {d: [["NIFTY", expired, 1, 1, 1, 1, 0, 0],               # must be ignored: already expired that day
                     ["NIFTY", far, 9, 9, 9, 9, 0, 0],
                     ["NIFTY", near, 10, 12, 8, 11, 500, 777],
@@ -182,7 +182,7 @@ def test_daily_bars_pick_the_nearest_unexpired_contract_each_day(monkeypatch):
 
 
 def test_daily_bars_end_with_todays_live_front_month(monkeypatch):
-    monkeypatch.setattr(fno, "_ensure_days", lambda days: {})
+    monkeypatch.setattr(fno, "_ensure_days", lambda days, bse=False: {})
     live = [{"open": 22839.9, "high": 22897.0, "low": 22803.0, "last": 22815.0, "volume": 17496}]
     monkeypatch.setattr(fno, "futures", lambda u: (live, 22700.0, "ts"))
     today = datetime.now(IST).date()
@@ -221,3 +221,43 @@ def test_candles_serve_intraday_for_1d_and_daily_otherwise(monkeypatch):
     assert daily["interval"] == "1d" and daily["candles"][0]["time"] == 2
     with pytest.raises(ValueError):
         fno.candles("IWP.NS", "1m", "1D")
+
+
+def test_parse_lots_reads_the_nearest_month_and_skips_blank_months():
+    text = ("UNDERLYING   ,SYMBOL    ,OCT-26 ,NOV-26 \n"
+            "NIFTY 50     ,NIFTY     ,65     ,65     \n"
+            "SOME STOCK   ,NEWCO     ,       ,500    \n"
+            "Symbol       ,          ,       ,       \n")
+    assert fno.parse_lots(text) == {"NIFTY": 65, "NEWCO": 500}
+
+
+def test_sensex_resolves_to_bse_futures():
+    assert fno.resolve("^BSESN")["fut"] == "SENSEX-FUT"
+    assert fno.spot_symbol("SENSEX-FUT") == "^BSESN"
+
+
+def test_bse_row_converts_units_and_expiry():
+    r = fno.bse_row({"EXPIRYDATE": "29 Oct 26", "SCRIPCODE": 864571, "LASTTRADERATE": 73652.0, "VOLUME": 910,
+                     "VALUE": 13359.0, "Market_Lot": 20, "PREVIOUSCLOSERATE": 73601.0})
+    assert r["expiryDate"] == "29-Oct-2026"
+    assert r["totalTradedVolume"] == 18200          # contracts x lot, as in the bhavcopy
+    assert r["totalTurnover"] == 13359.0 * 1e5      # lakhs -> rupees
+
+
+def test_stats_from_daily_bars():
+    from orazio.stats import from_daily
+    day = 86400
+    bars = [{"time": i * day, "open": 100, "high": 100 + i, "low": 50 + i, "close": 100 + i} for i in range(400)]
+    s = from_daily(bars, price=600)
+    assert s["yearHigh"] == 600 and s["yearLow"] == 50 + 35       # only the last 365 days count, plus the live price
+    assert s["change30d"] == round((600 / (100 + 369) - 1) * 100, 2)
+
+
+def test_ticks_retry_an_empty_series_and_keep_the_last_full_one(monkeypatch):
+    answers = iter([{"grapthData": []}, {"grapthData": [[1, 2.0]]}])
+    monkeypatch.setattr(fno, "nse_get", lambda path, params: next(answers))
+    assert fno._ticks("FUTIDXTEST-RETRY") == [[1, 2.0]]          # second try had the data
+
+    monkeypatch.setattr(fno, "nse_get", lambda path, params: {"grapthData": []})
+    monkeypatch.setattr(fno, "cached", lambda key, ttl, fn: fn())  # skip the 5 s cache
+    assert fno._ticks("FUTIDXTEST-RETRY") == [[1, 2.0]]          # every try empty: the last full series stays
