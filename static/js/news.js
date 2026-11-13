@@ -1,6 +1,6 @@
 // Side panel: headlines for the symbol on the chart, refreshed every minute and on symbol change.
 import { ago } from './format.js';
-import { $, displayName, esc, state } from './state.js';
+import { $, displayName, esc, state, visible } from './state.js';
 
 const panel = $('news');
 const list = $('news-list');
@@ -74,13 +74,13 @@ function setOpen(next) {
 $('news-btn').addEventListener('click', () => setOpen(!open));
 
 // One light tick: reload on symbol change or every minute.
-setInterval(() => {
+setInterval(visible(() => {
   if (!open) return;
   if (state.currentSymbol !== shownSymbol) {
     if (!inFlight) { list.innerHTML = '<div class="news-empty">Loading…</div>'; items = []; }
     load();
   } else if (Date.now() - lastFetch >= POLL_MS) load();
-}, 1000);
+}), 1000);
 
 // Keep the "3m ago" labels honest without rebuilding the list (which would drop hover/focus).
 setInterval(() => {

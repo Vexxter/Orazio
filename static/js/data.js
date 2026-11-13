@@ -1,7 +1,6 @@
-import { applyLineAreaColor, areaSeries, barSeries, candleSeries, chart, computeDayBoundaries, fitWithPadding, lineSeries, renderIndicators, syncStyleData, updateLegend, updateWatermark, volumeSeries } from './chart.js';
-import { $, COLORS, INTERVAL_LABEL, INTERVAL_SECONDS, displayName, state, unsuppressSoon } from './state.js';
+import { applyLineAreaColor, applyStyle, areaSeries, barSeries, candleSeries, chart, computeDayBoundaries, fitWithPadding, lineSeries, renderIndicators, syncStyleData, updateLegend, updateWatermark, volumeSeries } from './chart.js';
+import { $, COLORS, INTERVAL_LABEL, INTERVAL_SECONDS, displayName, isDaily, state, unsuppressSoon } from './state.js';
 import { hideChartState, setConn, setIntervalUI, setLoading, setRangeUI, showChartState, showFreshness, toast } from './ui.js';
-import { updateFuturesToggle } from './futures.js';
 import { feedQuery } from './feed-policy.js';
 import { shouldFoldLiveTick } from './refresh-policy.js';
 
@@ -14,6 +13,13 @@ export const currentFeedQuery = (symbol = state.currentSymbol) => feedQuery({ sy
 // response you actually want by many seconds.
 
 export async function loadCandles(opts = {}) {
+  // Bar replay (replay.js) owns the chart: the minute refresh waits, anything else ends the replay.
+  if (state.replay) {
+    if (opts.preserveView) return;
+    state.latestCandles = state.replay.full;
+    state.replay = null;
+    document.dispatchEvent(new CustomEvent('replay:ended'));
+  }
   state.suppressRangeEvents = true;
   const myGeneration = ++state.loadGeneration;
   state.candlesAbortController?.abort();
@@ -21,6 +27,7 @@ export async function loadCandles(opts = {}) {
   const requestedInterval = opts.interval || state.selectedInterval;
   const requestedRange = opts.range || state.currentRange;
   const preserve = opts.preserveView ? chart.timeScale().getVisibleRange() : null;
+  const symbolAtRequest = state.currentSymbol;
 
   // A yfinance round-trip takes a second or two — a progress bar keeps an impatient
   // click from reading as "unresponsive".
@@ -63,6 +70,10 @@ export async function loadCandles(opts = {}) {
     }
   }
   state.candleSource = payload.source || null;      // 'binance' when the bars come from there
+  state.decimals = payload.decimals || 2;           // bond yields: 3 (7.357%)
+  state.candlesFor = symbolAtRequest;               // whose bars these are (see foldTickIntoChart)
+  // The first quote of a new symbol can land before its precision is known; redraw it at the right one.
+  if (state.lastPolledPrice !== null) $('price').textContent = state.lastPolledPrice.toFixed(state.decimals);
   state.liveFold = payload.liveFold !== false;
   state.feedChoice = !!payload.feedChoice;
   state.currentInterval = payload.interval;
@@ -76,13 +87,22 @@ export async function loadCandles(opts = {}) {
   const intervalNote = payload.interval !== requestedInterval
     ? `${INTERVAL_LABEL[requestedInterval] || requestedInterval} bars aren't available for ${requestedRange} — showing ${INTERVAL_LABEL[payload.interval] || payload.interval}`
     : '';
-  const feedNote = payload.feed === 'yahoo' ? 'Yahoo CME futures feed — about 10 minutes behind; prices differ slightly from the Binance perpetual' : '';
-  $('note').textContent = [intervalNote, feedNote].filter(Boolean).join(' · ');
+  $('note').textContent = [intervalNote, payload.note].filter(Boolean).join(' · ');
 
+  // Close-only series (India 10Y daily) draw as a line; the user's own style comes back with the next chart.
+  // Not saved to prefs: this is the data's limit, not a choice.
+  if (payload.closeOnly && (state.currentStyle === 'candle' || state.currentStyle === 'bar')) {
+    state.styleBeforeLine = state.currentStyle;
+    $('style').value = 'line';
+    applyStyle('line');
+  } else if (!payload.closeOnly && state.styleBeforeLine) {
+    $('style').value = state.styleBeforeLine;
+    applyStyle(state.styleBeforeLine);
+    state.styleBeforeLine = null;
+  }
   syncStyleData();
   renderIndicators();
   computeDayBoundaries();
-  updateFuturesToggle();
   updateWatermark();
   updateLegend(null);
   if (state.latestCandles.length) {
@@ -94,10 +114,13 @@ export async function loadCandles(opts = {}) {
   }
   setLoading(false);
   unsuppressSoon();
+  // Listeners (futures toggle, compare pane) react to a fresh chart without data.js importing them —
+  // importing futures.js here made a data -> futures -> symbol -> data cycle.
+  document.dispatchEvent(new CustomEvent('candles:loaded'));
 }
 
 export async function loadMoreHistory() {
-  if (state.loadingHistory || state.historyExhausted || state.currentInterval === '1d' || !state.resolvedSymbol || state.historyOldestTime == null) return;
+  if (state.replay || state.loadingHistory || state.historyExhausted || isDaily(state.currentInterval) || !state.resolvedSymbol || state.historyOldestTime == null) return;
   state.loadingHistory = true;
   state.suppressRangeEvents = true;
   const myGeneration = state.loadGeneration;
@@ -142,10 +165,13 @@ export function applyQuote(q) {
   const priceEl = $('price');
   const changeEl = $('change');
   const up = q.change >= 0;
-  priceEl.textContent = q.price.toFixed(2);
-  changeEl.textContent = `${up ? '▲' : '▼'} ${up ? '+' : ''}${q.change.toFixed(2)} (${q.changePercent.toFixed(2)}%)`;
+  const dp = state.decimals;
+  priceEl.textContent = q.price.toFixed(dp);
+  // A yield's move reads in basis points, not as a percent of a percent.
+  const move = q.currency === '%' ? `${up ? '+' : ''}${(q.change * 100).toFixed(1)} bp` : `${up ? '+' : ''}${q.change.toFixed(dp)} (${q.changePercent.toFixed(2)}%)`;
+  changeEl.textContent = `${up ? '▲' : '▼'} ${move}`;
   changeEl.className = `chip ${up ? 'up' : 'down'}`;
-  document.title = `${q.price.toFixed(2)} ${displayName(state.currentSymbol)} — Orazio`;
+  document.title = `${q.price.toFixed(dp)} ${displayName(state.currentSymbol)} — Orazio`;
   applyLineAreaColor(up);
 
   if (state.lastPolledPrice !== null && q.price !== state.lastPolledPrice) {
@@ -193,7 +219,10 @@ function pushLiveBar(bar, isNew) {
 }
 
 function foldTickIntoChart(price, nowSec, q = {}) {
-  if (!state.latestCandles.length || !shouldFoldLiveTick({ liveFold: state.liveFold })) return;
+  // After a symbol switch the old symbol's bars stay on screen until the new ones load; a tick of the new
+  // symbol must not be painted onto them (it put a 7.36% yield on NIFTY's 23,000 candle).
+  if (state.candlesFor !== state.currentSymbol) return;
+  if (state.replay || !state.latestCandles.length || !shouldFoldLiveTick({ liveFold: state.liveFold })) return;
   const last = state.latestCandles[state.latestCandles.length - 1];
   const step = INTERVAL_SECONDS[state.currentInterval];
   // A quote is "fresh" when the exchange tick itself is recent. That — not the age of
@@ -201,7 +230,7 @@ function foldTickIntoChart(price, nowSec, q = {}) {
   // ~15 min old, but BSE's quote is current, so the live bar must still be allowed.
   const fresh = q.delaySec !== null && q.delaySec !== undefined && q.delaySec < 180;
   const recentBar = step ? (nowSec - last.time < 2 * step + 240)
-                         : (state.currentInterval === '1d' && nowSec - last.time < 86400);
+                         : (state.currentInterval === '1d' && nowSec - last.time < 86400) || (state.currentInterval === '1wk' && nowSec - last.time < 7 * 86400);
   if (!fresh && !recentBar) return; // market closed / stale everywhere: never paint onto old bars
 
   // Bucket by the tick's own time when we have it, anchored to the last bar's grid

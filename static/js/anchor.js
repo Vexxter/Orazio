@@ -5,19 +5,24 @@ import { anchorSeconds as anchorSecondsFor, logicalToSeconds, secondsToLogical, 
 import { INTERVAL_SECONDS, state } from './state.js';
 
 const series = () => priceSeriesByStyle[state.currentStyle];
-const stepSec = () => INTERVAL_SECONDS[state.currentInterval] || 86400;
+export const stepSec = () => INTERVAL_SECONDS[state.currentInterval] || 86400;
 
 export function anchorSeconds(p) { return anchorSecondsFor(p, stepSec()); }
 export function trendReadout(a, b) { return readout(a, b, stepSec()); }
 
+// A pixel position on the plot -> { t, price } (used by clicks and by dragging a drawing).
+export function pointFromXY(x, y) {
+  if (!state.latestCandles.length) return null;
+  const price = series().coordinateToPrice(y);
+  const logical = chart.timeScale().coordinateToLogical(x);
+  if (price === null || price === undefined || logical === null) return null;
+  return { t: logicalToSeconds(state.latestCandles, stepSec(), logical), price };
+}
+
 // A click -> { t, price }. Lightweight Charts reports click time snapped to a bar; the exact spot
 // comes from the click's logical (fractional bar) position instead.
 export function pointFromParam(param) {
-  if (!param.point || !state.latestCandles.length) return null;
-  const price = series().coordinateToPrice(param.point.y);
-  const logical = chart.timeScale().coordinateToLogical(param.point.x);
-  if (price === null || price === undefined || logical === null) return null;
-  return { t: logicalToSeconds(state.latestCandles, stepSec(), logical), price };
+  return param.point ? pointFromXY(param.point.x, param.point.y) : null;
 }
 
 // { t, price } -> pixel position on the current chart.

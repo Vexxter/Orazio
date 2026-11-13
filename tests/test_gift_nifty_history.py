@@ -114,6 +114,12 @@ def test_daily_history_covers_weekdays_only_and_never_today(monkeypatch):
 
 def test_daily_history_builds_one_bar_per_available_day(monkeypatch):
     s2 = gift_nifty.parse_bhavcopy(BHAV)
+
+    class Oct20(datetime):  # pin "today" before the fixture's 27-Oct-2026 front-month expiry
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 10, 20, 12, 0, tzinfo=tz)
+    monkeypatch.setattr(gift_nifty, "datetime", Oct20)
     monkeypatch.setattr(gift_nifty, "_ensure_days", lambda days: {d: {"s1": [], "s2": s2} for d in days})
     bars = gift_nifty.daily_history(10)
     assert bars and all(b["close"] == 22659.5 for b in bars)

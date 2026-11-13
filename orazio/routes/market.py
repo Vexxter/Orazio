@@ -2,8 +2,11 @@
 from flask import jsonify, request
 
 from .. import cas, constituents as constituents_service, global_movers, live_volume, market_breadth, names as names_service
+from .. import bonds as bonds_service
+from .. import corp_bonds, gsec
 from .. import movers as movers_service
 from .. import poller
+from .. import screener as screener_service
 from .. import stats as stats_service
 from ..constants import INTERVAL_SECONDS
 from ..symbols import clean_symbol
@@ -36,6 +39,23 @@ def movers_route():
             return jsonify({"available": False, "universe": universe, "gainers": [], "losers": []})
         return _with_names({"available": True, "universe": universe, **cached})
     return _with_names(movers_service.movers(universe))
+
+
+@bp.route("/api/bonds/global")
+def bonds_global_route():
+    return jsonify({"rows": bonds_service.global_yields()})
+
+
+@bp.route("/api/bonds/india")
+def bonds_india_route():
+    poller.ensure_poller()   # starts the G-sec trade recorder
+    seg = request.args.get("segment") or "cg"
+    return jsonify(corp_bonds.corporate() if seg == "corp" else gsec.segment(seg))
+
+
+@bp.route("/api/screener")
+def screener_route():
+    return jsonify(screener_service.screen(request.args.get("universe") or ""))
 
 
 @bp.route("/api/stats")

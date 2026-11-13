@@ -15,7 +15,10 @@ from orazio.symbols import clean_symbol
 def get_json(client, url, status=200):
     resp = client.get(url)
     assert resp.status_code == status, f"{url} -> {resp.status_code}: {resp.get_data(as_text=True)[:200]}"
-    return resp.get_json()
+    payload = resp.get_json()
+    if isinstance(payload, dict):
+        payload.pop("provenance", None)   # checked on its own below; every other test is about the route's own fields
+    return payload
 
 
 # ---- static page + config -------------------------------------------------------
@@ -258,10 +261,50 @@ def test_schedule_can_be_saved_and_read_back_from_the_same_origin(client, isolat
 def test_search_shapes_yahoo_results_and_tolerates_failure(client, monkeypatch):
     class R:
         def raise_for_status(self): pass
-        def json(self): return {"quotes": [{"symbol": "RELIANCE.NS", "shortname": "RELIANCE", "exchange": "NSI", "quoteType": "EQUITY"}, {"shortname": "no symbol"}]}
+        def json(self): return {"quotes": [
+            {"symbol": "RELIANCE.NS", "shortname": "RELIANCE", "longname": "Reliance Industries Limited", "exchange": "NSI", "exchDisp": "NSE", "quoteType": "EQUITY"},
+            {"shortname": "no symbol"},
+            {"symbol": "0P00012KBL.BO", "quoteType": "MUTUALFUND"},
+            {"symbol": "INFY270115P00009000", "quoteType": "OPTION"},
+            {"symbol": "BAFL-V2629.BO", "quoteType": "FUTURE"},
+            {"symbol": "CL=F", "shortname": "Crude Oil", "exchange": "NYM", "quoteType": "FUTURE"},
+        ]}
     import requests
     monkeypatch.setattr(requests, "get", lambda *a, **k: R())
-    assert get_json(client, "/api/search?q=reli") == [{"symbol": "RELIANCE.NS", "name": "RELIANCE", "exchange": "NSI", "type": "EQUITY"}]
+    assert get_json(client, "/api/search?q=reli") == [
+        {"symbol": "RELIANCE.NS", "name": "Reliance Industries Limited", "exchange": "NSE", "type": "stock"},
+        {"symbol": "CL=F", "name": "Crude Oil", "exchange": "NYM", "type": "future"},
+    ]
     assert get_json(client, "/api/search?q=") == []
     monkeypatch.setattr(requests, "get", lambda *a, **k: (_ for _ in ()).throw(requests.RequestException("down")))
     assert get_json(client, "/api/search?q=reli") == []
+
+
+# ---- provenance ------------------------------------------------------------------
+def test_data_responses_name_their_source_and_age(client, monkeypatch):
+    from orazio import flows
+    monkeypatch.setattr(flows, "payload", lambda: {"date": "2026-11-02", "cash": []})
+    p = client.get("/api/flows").get_json()["provenance"]
+    assert p["feed"] == "flows" and "NSE" in p["source"] and p["url"].startswith("https://") and p["asOf"] == "2026-11-02" and p["delay"]
+
+
+def test_quote_provenance_follows_the_source_that_answered(client, monkeypatch):
+    from orazio import quotes
+    monkeypatch.setattr(quotes, "quote_payload", lambda *a, **k: {"symbol": "X", "price": 1, "source": "dukascopy", "marketTime": 5, "currency": "USD"})
+    p = client.get("/api/quote?symbol=CRUDE").get_json()["provenance"]
+    assert p["feed"] == "spot" and p["asOf"] == 5 and p["units"] == "USD"
+
+
+def test_a_source_that_did_not_answer_shows_as_failing(client, monkeypatch):
+    from orazio import provenance, screener
+    monkeypatch.setattr(screener, "screen", lambda u: {"available": False, "rows": []})
+    get_json(client, "/api/screener")
+    row = next(f for f in get_json(client, "/api/sources")["feeds"] if f["id"] == "screener")
+    assert row["error"] and row["failAt"]
+    provenance._health.clear()
+
+
+def test_non_data_routes_get_no_provenance_and_every_mapped_feed_exists(client):
+    from orazio import provenance
+    assert "provenance" not in get_json(client, "/api/config")
+    assert set(provenance.ROUTES.values()) | set(provenance.SOURCES.values()) <= set(provenance.FEEDS)

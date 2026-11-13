@@ -12,6 +12,25 @@ def drop_spurious_flat_rows(rows):
     ]
 
 
+def week_key(t):
+    """IST week (Monday start) an epoch falls in; epoch day 0 was a Thursday, hence the +3 days."""
+    return (t + 19800 + 3 * 86400) // (7 * 86400)
+
+
+def resample_weekly(daily):
+    """Daily rows -> weekly rows (Mon-Sun, IST), each stamped with its first session's time. For sources
+    with no weekly feed of their own (NSE futures, GIFT Nifty)."""
+    out = []
+    for r in daily:
+        if out and week_key(out[-1]["time"]) == week_key(r["time"]):
+            w = out[-1]
+            w["high"], w["low"], w["close"] = max(w["high"], r["high"]), min(w["low"], r["low"]), r["close"]
+            w["volume"] = (w.get("volume") or 0) + (r.get("volume") or 0)
+        else:
+            out.append(dict(r))
+    return out
+
+
 def df_to_rows(df):
     df = df.dropna()
 

@@ -25,6 +25,7 @@ from datetime import datetime
 
 import yfinance as yf
 
+from . import fno
 from .cache import cached
 from .candles import df_to_rows
 from .constants import (CAS_REFERENCE_AT, CAS_SESSIONS, IST, NSE_INDEX_NAMES, NSE_POLL_SEC,
@@ -321,6 +322,45 @@ def cas_reference(alias, now_ist, points):
     if ref:
         _cas_reference[key] = ref
     return ref
+
+
+# ---------------------------------------------------------------------------
+# Real-time auction estimate, rebuilt from futures
+# ---------------------------------------------------------------------------
+# During the closing auction (15:15-15:35) the cash index barely moves — its F&O constituents are in
+# the auction, not trading — and NSE publishes the index's indicative close only about once a minute.
+# Index futures, though, trade continuously until 15:40 (SEBI/NSE timetable from 3 Aug 2026), so they
+# carry the market's view of where the close will land, from 15:15 on — before NSE's own indicative
+# (~15:20). Not faster, though: NSE's public futures feed was measured (14 Oct 2026) changing every
+# ~54 s (quote API) / ~108 s (tick chart). Holding the basis fixed at the 15:14:59 reference:
+#     implied close = future now - (future at 15:14:59 - index at 15:14:59)
+FUTURES_UNDERLYING = {"NIFTY": "NIFTY", "BANKNIFTY": "BANKNIFTY"}
+
+
+def futures_implied(ticks, ref_epoch, spot_ref, max_gap=120):
+    """Pure: [(epoch, future price)] + the index reference -> {"futRef", "basis", "points"}, or None
+    when there is no futures print within `max_gap` seconds before the reference moment."""
+    if spot_ref is None:
+        return None
+    hit = _last_at_or_before(ticks, ref_epoch, max_gap)
+    if not hit:
+        return None
+    basis = hit[1] - spot_ref
+    return {"futRef": hit[1], "basis": round(basis, 2),
+            "points": [(t, round(p - basis, 2)) for t, p in ticks if t > ref_epoch]}
+
+
+def implied_close(alias, now_ist, ref):
+    """The futures-implied auction close for `alias`, once its reference is locked; None otherwise."""
+    underlying = FUTURES_UNDERLYING.get(alias)
+    if not underlying or not ref:
+        return None
+    est = futures_implied(fno.front_ticks(underlying), cas_reference_epoch(now_ist), ref["value"])
+    if not est or not est["points"]:
+        return est and {**est, "value": None, "t": None}
+    t, value = est["points"][-1]
+    return {**est, "value": value, "t": t, "changeVsRef": round(value - ref["value"], 2),
+            "source": f"{underlying} front-month future, basis held at 15:14:59"}
 
 
 def _nse_index_poller():

@@ -97,6 +97,23 @@ check("NIFTY future daily history", "/api/candles?symbol=NIFTY-FUT&interval=1d&r
 check("News (NIFTY)", "/api/news?symbol=NIFTY", lambda d: None if d["items"] else "no headlines")
 check("Company name", "/api/name?symbol=457190.KS", lambda d: None if d.get("name") else "no name")
 check("CAS panel", "/api/cas", has("phase", "indices"))
+check("Filings (NSE)", "/api/filings", lambda d: None if d.get("available") and d["rows"] and d["rows"][0].get("symbol") else "no filings, or NSE changed the shape")
+check("Shareholding (RELIANCE)", "/api/shareholding?symbol=RELIANCE", lambda d: None if d.get("available") and d["rows"][-1].get("promoter") is not None else "no promoter %")
+check("Provenance on data responses", "/api/quote?symbol=NIFTY", lambda d: None if d.get("provenance", {}).get("source") else "no provenance")
+check("Feed registry", "/api/sources", lambda d: None if len(d["feeds"]) > 20 else "feeds missing")
+
+
+def sane_backtest(d):
+    """Guards NSE's file format too: reading the wrong settlement column once showed a Rs 29 lakh loss on one straddle."""
+    if d.get("downloading"):
+        return f"skip: {d['downloading']} days still downloading"
+    worst = d.get("summary", {}).get("worstTrade")
+    if worst is None:
+        return "no trades"
+    return None if abs(worst) < 500000 else f"implausible worst trade {worst}"
+
+
+check("Option backtest (NIFTY)", "/api/option-backtest?underlying=NIFTY&legs=SELL%20CE%200,SELL%20PE%200&months=1", sane_backtest, timeout=120)
 check("Export options", "/api/export/options?symbol=NIFTY", has("intervals", "universes", "formats"))
 
 fails = results.count("FAIL")

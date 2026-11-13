@@ -1,7 +1,7 @@
 // Top Gainers/Losers modal. Same open/poll/close pattern as cas-feed.js.
 import { loadCandles } from './data.js';
 import { switchSymbol } from './symbol.js';
-import { $, esc } from './state.js';
+import { $, esc, visible } from './state.js';
 import { setIntervalUI } from './ui.js';
 
 const moversModal = $('movers-modal');
@@ -15,7 +15,7 @@ function openMovers() {
   $('movers-close').focus();
   loadMovers();
   clearInterval(moversPoll);
-  moversPoll = setInterval(loadMovers, 10000);
+  moversPoll = setInterval(visible(loadMovers), 10000);
 }
 function closeMovers() {
   moversModal.classList.remove('open');
@@ -32,7 +32,7 @@ function moversTable(title, rows) {
     const title = r.chartSymbol ? ` title="Open ${esc(r.symbol)} at 1m"` : '';
     return `<tr${clickable}${title} data-chart-symbol="${esc(r.chartSymbol || '')}"><td class="l"><strong>${esc(r.symbol)}</strong>${r.name || r.localName ? `<div class="mv-name">${esc(r.name || '')}${r.localName ? ` <span class="mv-local">${esc(r.localName)}</span>` : ''}</div>` : ''}</td><td>${r.ltp ?? '–'}</td>
       <td class="${cls}">${r.perChange === null || r.perChange === undefined ? '–' : (r.perChange >= 0 ? '+' : '') + r.perChange.toFixed(2) + '%'}</td>
-      <td>${r.volume ? nfmt.format(r.volume) : '–'}</td></tr>`;
+      <td>${typeof r.volume === 'number' ? nfmt.format(r.volume) : esc(r.volume || '–')}</td></tr>`;   // NSE now sends some volumes preformatted ('6.00 L')
   }).join('');
   return `<div><h3>${title}</h3><table class="opt-table feed-table"><thead><tr>
     <th class="l">Symbol</th><th>LTP</th><th>Chg %</th><th>Volume</th></tr></thead><tbody>${body}</tbody></table></div>`;

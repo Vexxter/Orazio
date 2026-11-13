@@ -6,15 +6,6 @@ import { switchSymbol } from './symbol.js';
 
 const symbolInput = $('symbol-input');
 
-const INDEX_META = {
-  NIFTY: ['Nifty 50', 'India'], BANKNIFTY: ['Bank Nifty', 'India'], NIFTYIT: ['Nifty IT', 'India'], SENSEX: ['BSE Sensex', 'India'], GIFTNIFTY: ['GIFT Nifty (futures)', 'India'],
-  SPX: ['S&P 500', 'US'], NASDAQ: ['Nasdaq Composite', 'US'], DOWJONES: ['Dow Jones', 'US'],
-  CRUDE: ['WTI Crude Oil', 'Commodities'], BRENT: ['Brent Crude', 'Commodities'], GOLD: ['Gold', 'Commodities'],
-  SILVER: ['Silver', 'Commodities'], NATGAS: ['Natural Gas', 'Commodities'], COPPER: ['Copper', 'Commodities'],
-  BTC: ['Bitcoin', 'Crypto'], ETH: ['Ethereum', 'Crypto'], BNB: ['BNB', 'Crypto'], SOL: ['Solana', 'Crypto'],
-  XRP: ['XRP', 'Crypto'], DOGE: ['Dogecoin', 'Crypto'],
-  KOSPI: ['KOSPI', 'Asia'], TAIEX: ['Taiwan Weighted', 'Asia'], CHINA: ['CSI 300', 'Asia'], SSE: ['Shanghai Composite', 'Asia'],
-};
 const RAIL_GROUPS = ['India', 'US', 'Commodities', 'Asia', 'Crypto', 'Other'];
 // NIFTY/BANKNIFTY/NIFTYIT: free from NSE's own allIndices payload (orazio/cas.py
 // breadth_from_all_indices). SENSEX/DOWJONES/SPX/CHINA: computed from their own
@@ -49,10 +40,11 @@ export async function loadConfig() {
     return;
   }
   const byGroup = Object.fromEntries(RAIL_GROUPS.map(g => [g, []]));
-  for (const sym of state.CONFIG.quickIndices) byGroup[(INDEX_META[sym] || [null, 'Other'])[1]].push(sym);
+  const meta = state.CONFIG.indexMeta || {};
+  for (const sym of state.CONFIG.quickIndices) byGroup[(meta[sym] || {}).group || 'Other'].push(sym);
   $('rail-groups').innerHTML = RAIL_GROUPS.filter(g => byGroup[g].length).map(g =>
     `<div class="rail-group"><div class="rail-title">${g}</div>${byGroup[g].map(sym =>
-      `<button type="button" class="rail-item" data-sym="${esc(sym)}"><span class="rail-sym">${esc(sym)}</span><span class="rail-name">${esc((INDEX_META[sym] || [sym])[0])}</span>${
+      `<button type="button" class="rail-item" data-sym="${esc(sym)}"><span class="rail-sym">${esc(sym)}</span><span class="rail-name">${esc((meta[sym] || {}).name || sym)}</span>${
         BREADTH_ALIASES.has(sym) ? `<span class="rail-breadth" data-breadth-for="${esc(sym)}"></span>` : ''
       }</button>`
     ).join('')}</div>`).join('');
