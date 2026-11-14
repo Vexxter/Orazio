@@ -4,7 +4,7 @@ from datetime import datetime
 
 from flask import abort, jsonify, request
 
-from .. import cas, market_data, poller
+from .. import cas, cas_rebuild, market_data, poller
 from ..constants import IST, NO_AUCTION_ALIASES, NSE_INDEX_NAMES, QUICK_INDICES
 from ..nse_client import nse_get
 from . import bp
@@ -15,8 +15,27 @@ def _pct(value, base):
     return (value - base) / base * 100 if (value and base) else None
 
 
-def _nse_index_row(alias, r):
+def _implied(alias, now_ist, ref=None):
+    """Futures-implied auction close (see cas.implied_close); a futures-feed failure just means none."""
+    if alias not in cas.FUTURES_UNDERLYING:
+        return None
+    try:
+        ref = ref or cas.cas_reference(alias, now_ist, list(cas.nse_series(alias)))
+        return cas.implied_close(alias, now_ist, ref)
+    except Exception:  # noqa: BLE001 — the estimate is an extra; never let it break the panel
+        return None
+
+
+def _rebuilt_fields(alias, prev):
+    snap = cas_rebuild.snapshot(alias) if alias in cas_rebuild.INDEX_LISTS else None
+    return {"rebuiltClose": snap and snap["value"], "rebuiltClosePct": _pct(snap and snap["value"], prev),
+            "rebuiltCoverage": snap and snap["coverage"], "rebuiltAt": snap and snap["t"]}
+
+
+def _nse_index_row(alias, r, now_ist):
     prev = r.get("previousClose") or 0
+    implied = _implied(alias, now_ist)
+    implied_value = implied and implied.get("value")
     open_ = r.get("open") or 0
     icls = r.get("indicativeClose") or 0
     return {
@@ -26,6 +45,10 @@ def _nse_index_row(alias, r):
         "openChangePct": _pct(open_, prev),
         "indicativeClose": icls or None,
         "indicativeClosePct": _pct(icls, prev),
+        "impliedClose": implied_value or None,
+        "impliedClosePct": _pct(implied_value, prev),
+        "impliedAt": implied and implied.get("t"),
+        **_rebuilt_fields(alias, prev),
         "last": r.get("last"),
     }
 
@@ -46,14 +69,14 @@ def _sensex_row():
     }
 
 
-def _index_rows(by_name):
+def _index_rows(by_name, now_ist):
     rows = []
     for _label, alias in QUICK_INDICES:
         if alias in NO_AUCTION_ALIASES:
             continue
         nse_name = NSE_INDEX_NAMES.get(alias)
         if nse_name and nse_name in by_name:
-            rows.append(_nse_index_row(alias, by_name[nse_name]))
+            rows.append(_nse_index_row(alias, by_name[nse_name], now_ist))
         elif alias == "SENSEX":
             rows.append(_sensex_row())
         else:
@@ -98,7 +121,7 @@ def cas_route():
         "indicativeNifty": indicative,
         "windows": {s["phase"]: "%02d:%02d-%02d:%02d IST" % (s["start"] + s["end"]) for s in cas.CAS_SESSIONS},
         "breadth": _auction_breadth(phase),
-        "indices": _index_rows(by_name),
+        "indices": _index_rows(by_name, now_ist),
     })
 
 
@@ -131,6 +154,8 @@ def cas_movement():
             "alias": alias, "available": bool(points), "source": source, "live": live,
             "prevClose": prev, "last": last and last[1], "indicative": last and last[2],
             "reference": ref, "points": recent,
+            "implied": _implied(alias, now_ist, ref),
+            "rebuilt": cas_rebuild.snapshot(alias) if alias in cas_rebuild.INDEX_LISTS else None,
         })
 
     return jsonify({

@@ -8,4 +8,5 @@ export function applyTheme(mode) {
   document.documentElement.dataset.theme = mode;
   refreshColors();
   applyThemeToChart();
+  document.dispatchEvent(new CustomEvent('theme:changed'));
 }

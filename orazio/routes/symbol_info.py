@@ -1,13 +1,15 @@
-"""Information about the symbol on the chart: headlines, company name, search, and US option chains."""
+"""Information about the symbol on the chart: headlines, company name, search (symbol master + Yahoo), and US option chains."""
 import time
 
 import requests
 import yfinance as yf
 from flask import abort, jsonify, request
 
+from .. import bonds, gsec
 from .. import fno as fno_service
 from .. import names as names_service
 from .. import news as news_service
+from .. import symbol_master
 from ..symbols import clean_symbol
 from . import bp
 
@@ -28,7 +30,30 @@ def name_route():
     if symbol.endswith("-FUT"):
         res = fno_service.resolve(symbol)
         return jsonify({"symbol": symbol, "name": f"{res['name']} — futures (front month)" if res else None})
+    if bonds.is_bond(symbol):
+        return jsonify({"symbol": symbol, "name": bonds.name(symbol)})
+    if gsec.is_gsec(symbol):
+        return jsonify({"symbol": symbol, "name": gsec.name(symbol)})
     return jsonify({"symbol": symbol, "name": names_service.english_name(symbol)})
+
+
+@bp.route("/api/symbols")
+def symbols():
+    """The local symbol master the search box ranks on every keystroke (orazio/symbol_master.py)."""
+    return jsonify(symbol_master.master())
+
+
+# Yahoo quoteType -> the search box's type. Anything else (mutual funds, options, money market) is noise.
+YAHOO_TYPES = {"EQUITY": "stock", "ETF": "etf", "INDEX": "index", "FUTURE": "future", "CRYPTOCURRENCY": "crypto", "CURRENCY": "fx"}
+# Yahoo's display names that are long or not what traders call the venue.
+EXCHANGE_NAMES = {"Bombay": "BSE", "BATS Trading": "Cboe", "OTC Markets": "OTC", "Johannesburg Stock Exchange": "JSE",
+                  "Toronto": "TSX", "NYSEArca": "NYSE Arca", "NYSE American": "NYSE Amer", "CCC": "Crypto", "CCY": "FX"}
+
+
+def _wanted(item):
+    sym = item.get("symbol") or ""
+    return (sym and item.get("quoteType") in YAHOO_TYPES and not sym.startswith("0P")
+            and not (item.get("quoteType") == "FUTURE" and sym.endswith(".BO")))   # BSE stock futures don't chart
 
 
 @bp.route("/api/search")
@@ -41,7 +66,7 @@ def search():
     try:
         resp = requests.get(
             "https://query1.finance.yahoo.com/v1/finance/search",
-            params={"q": q, "quotesCount": 8, "newsCount": 0},
+            params={"q": q, "quotesCount": 12, "newsCount": 0},
             headers={"User-Agent": "Mozilla/5.0"},
             timeout=5,
         )
@@ -51,13 +76,13 @@ def search():
         return jsonify([])
     return jsonify([
         {
-            "symbol": item.get("symbol"),
-            "name": item.get("shortname") or item.get("longname") or item.get("symbol"),
-            "exchange": item.get("exchange"),
-            "type": item.get("quoteType"),
+            "symbol": item["symbol"],
+            "name": item.get("longname") or item.get("shortname") or item["symbol"],
+            "exchange": EXCHANGE_NAMES.get(item.get("exchDisp"), item.get("exchDisp")) or item.get("exchange"),
+            "type": YAHOO_TYPES[item["quoteType"]],
         }
         for item in quotes
-        if item.get("symbol")
+        if _wanted(item)
     ])
 
 

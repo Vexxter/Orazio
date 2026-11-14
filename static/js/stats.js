@@ -1,6 +1,6 @@
 // Polls /api/stats for the current symbol and repaints the legend with it.
 import { renderIndicators, updateLegend } from './chart.js';
-import { state } from './state.js';
+import { state, visible } from './state.js';
 
 let inFlight = false;
 
@@ -35,4 +35,4 @@ async function pollStats() {
 }
 
 pollStats();
-setInterval(pollStats, 3000);
+setInterval(visible(pollStats), 3000);

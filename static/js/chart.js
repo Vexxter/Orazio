@@ -1,6 +1,7 @@
 import { compactIN } from './format.js';
+import { bandLayout } from './indicators.js';
 import { statsHtml, volumeAt } from './legend-html.js';
-import { $, COLORS, INTERVAL_LABEL, alpha, dateFmt, dateTimeFmt, dayKey, displayName, esc, state, timeFmt, token } from './state.js';
+import { $, COLORS, INTERVAL_LABEL, alpha, dateFmt, dateTimeFmt, dayKey, displayName, esc, isDaily, state, timeFmt, token } from './state.js';
 
 export const chart = LightweightCharts.createChart(document.getElementById('chart'), {
   autoSize: true,
@@ -24,7 +25,7 @@ export const chart = LightweightCharts.createChart(document.getElementById('char
     // data instead of showing everything, with no visual indication. "All" (4600+
     // daily bars) hit this. A tiny minimum lets fitContent genuinely fit all of it.
     minBarSpacing: 0.05,
-    tickMarkFormatter: (time) => state.currentInterval === '1d'
+    tickMarkFormatter: (time) => isDaily(state.currentInterval)
       ? dateFmt.format(new Date(time * 1000))
       : timeFmt.format(new Date(time * 1000)),
   },
@@ -52,20 +53,12 @@ export const volumeSeries = chart.addHistogramSeries({
   priceFormat: { type: 'volume' }, priceScaleId: 'left',
   priceLineVisible: false, lastValueVisible: true,
 });
-const VOLUME_TOP = 0.94;
-const MAIN_BOTTOM_WITH_VOLUME = 0.1;
-const MAIN_BOTTOM_NO_VOLUME = 0.05;
 // Lightweight Charts v4 only draws an axis for the built-in 'left'/'right' scales — a
 // custom-named overlay scale would stay invisible — so volume takes the (otherwise empty)
 // left scale.
 chart.priceScale('left').applyOptions({
-  visible: true, borderColor: COLORS.border, scaleMargins: { top: VOLUME_TOP, bottom: 0 },
+  visible: true, borderColor: COLORS.border, scaleMargins: bandLayout({ vol: true }).volume,
 });
-export const sma20Series = chart.addLineSeries({ color: '#f0b90b', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
-export const sma50Series = chart.addLineSeries({ color: '#7e57c2', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
-// Blue is otherwise unused now that the Line/Area price series itself is colored by
-// up/down direction (see applyLineAreaColor below) rather than a fixed accent color.
-export const sma200Series = chart.addLineSeries({ color: '#4c8dff', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
 
 export const priceSeriesByStyle = { candle: candleSeries, bar: barSeries, line: lineSeries, area: areaSeries };
 
@@ -80,7 +73,7 @@ export function applyStyle(style) {
 
 export function computeDayBoundaries() {
   state.dayBoundaryTimes = new Set();
-  if (state.currentInterval === '1d' || state.latestCandles.length < 2) { renderDayLines(); return; }
+  if (isDaily(state.currentInterval) || state.latestCandles.length < 2) { renderDayLines(); return; }
   let prevDay = dayKey(state.latestCandles[0].time);
   for (let i = 1; i < state.latestCandles.length; i++) {
     const dk = dayKey(state.latestCandles[i].time);
@@ -105,7 +98,7 @@ const dayLinesEl = $('day-lines');
 export function renderDayLines() {
   syncOverlayInset();
   dayLinesEl.innerHTML = '';
-  if (state.currentInterval === '1d' || !state.dayBoundaryTimes.size) return;
+  if (isDaily(state.currentInterval) || !state.dayBoundaryTimes.size) return;
   const ts = chart.timeScale();
   dayLinesEl.style.setProperty('--axis-h', `${ts.height ? ts.height() : 26}px`);
   for (const t of state.dayBoundaryTimes) {
@@ -135,21 +128,22 @@ export function syncStyleData() {
   }
 }
 
-function sma(data, period) {
-  const out = [];
-  for (let i = 0; i < data.length; i++) {
-    if (i < period - 1) continue;
-    let sum = 0;
-    for (let j = i - period + 1; j <= i; j++) sum += data[j].close;
-    out.push({ time: data[i].time, value: sum / period });
+// Price, volume and the oscillator bands (RSI/MACD, see studies.js) share one pane, each squeezed into
+// its own strip by scaleMargins — see indicators.js bandLayout.
+function layoutScales(vol) {
+  const bands = bandLayout({ vol, rsi: state.studies.rsi, macd: state.studies.macd });
+  chart.priceScale('right').applyOptions({ scaleMargins: bands.price });
+  chart.priceScale('left').applyOptions({ visible: vol, scaleMargins: bands.volume });
+  for (const name of ['rsi', 'macd']) {
+    if (bands[name]) chart.priceScale(name).applyOptions({ scaleMargins: bands[name] });
   }
-  return out;
+  return bands;
 }
 
-function layoutVolumeScale(on) {
-  chart.priceScale('right').applyOptions({ scaleMargins: { top: 0.08, bottom: on ? MAIN_BOTTOM_WITH_VOLUME : MAIN_BOTTOM_NO_VOLUME } });
-  chart.priceScale('left').applyOptions({ visible: on });
-}
+// Studies (moving averages, VWAP, Bollinger, RSI, MACD) live in studies.js, which imports this module;
+// it registers its renderer here so every redraw of the volume also redraws them, without an import cycle.
+const studyRenderers = [];
+export function onRenderIndicators(fn) { studyRenderers.push(fn); }
 
 // The volume scale spans the whole pane height (its bars are squeezed into the bottom strip by
 // scaleMargins), so left alone it would print tick labels — and crosshair labels — all the way
@@ -165,14 +159,20 @@ function updateVolumeAxisLabels() {
   volumeSeries.applyOptions({
     priceFormat: { type: 'custom', minMove: 1, formatter: (v) => (v > 0 && v <= max * 1.1 ? compactIN(v) : '') },
   });
+  // Same idea for the price axis once RSI/MACD bands sit under the candles: it spans the whole pane,
+  // so blank its labels below the lowest visible price instead of printing prices beside the oscillators.
+  let low = Infinity, high = -Infinity;
+  for (let i = from; i <= to; i++) { low = Math.min(low, bars[i].low ?? bars[i].close); high = Math.max(high, bars[i].high ?? bars[i].close); }
+  const floor = (state.studies.rsi || state.studies.macd) && low < Infinity ? low - (high - low) * 0.15 : -Infinity;
+  const dp = state.decimals;
+  const priceFormat = { type: 'custom', minMove: 10 ** -dp, formatter: (v) => (v >= floor ? v.toFixed(dp) : '') };
+  for (const series of Object.values(priceSeriesByStyle)) series.applyOptions({ priceFormat });
 }
 chart.timeScale().subscribeVisibleLogicalRangeChange(updateVolumeAxisLabels);
 
 export function renderIndicators() {
-  layoutVolumeScale($('vol').checked);
-  sma20Series.setData($('sma20').checked ? sma(state.latestCandles, 20) : []);
-  sma50Series.setData($('sma50').checked ? sma(state.latestCandles, 50) : []);
-  sma200Series.setData($('sma200').checked ? sma(state.latestCandles, 200) : []);
+  const bands = layoutScales($('vol').checked);
+  for (const fn of studyRenderers) fn(bands);
   volumeSeries.setData($('vol').checked ? state.latestCandles.map(c => ({
     time: c.time, value: c.volume,
     color: c.close >= c.open ? COLORS.volUp : COLORS.volDown,
@@ -212,7 +212,7 @@ export function updateLegend(bar) {
   const nameHtml = !isRailSymbol && nm && nm.symbol === state.currentSymbol && nm.name
     ? `<span class="lg-name">${esc(nm.name)}</span>` : '';
   const head = `<span class="lg-sym">${esc(displayName(state.currentSymbol))}</span>${nameHtml}<span class="lg-tag">${INTERVAL_LABEL[state.currentInterval] || esc(state.currentInterval)}</span>`;
-  const f = (v) => v.toFixed(2);
+  const f = (v) => v.toFixed(state.decimals);
   // Hovering shows that bar's own volume. With no hover, show the newest bar that HAS volume:
   // the in-progress candle reads 0 until NSE's next update (it publishes about once a minute).
   let vol;

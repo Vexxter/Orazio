@@ -110,7 +110,10 @@ def test_quote_payload_is_none_when_no_source_has_a_quote(monkeypatch):
 def test_only_in_memory_push_feeds_are_re_read_several_times_a_second():
     assert quotes.is_pushed("^BSESN") is True and quotes.is_pushed("AAPL") is False
     binance_stream.record("GC=F", 1.0, 1)
-    assert quotes.is_pushed("GC=F") is True
+    binance_stream.record("NG=F", 1.0, 1)
+    assert quotes.is_pushed("GC=F", "binance") is True
+    assert quotes.is_pushed("GC=F") is False          # gold defaults to spot (Swissquote): polled, not pushed
+    assert quotes.is_pushed("NG=F") is False          # gas defaults to spot too (Dukascopy)
 
 
 # ---- server-sent events ------------------------------------------------------------------------------------------
@@ -194,8 +197,9 @@ def test_the_stream_rejects_an_unsafe_symbol(client):
     assert client.get("/api/stream/quote?symbol=../../etc").status_code == 400
 
 
-# ---- commodity source switch: Binance (default) or Yahoo's delayed CME futures --------------------------------------
+# ---- commodity source switch: Spot (default) or Futures (Binance), Yahoo's CME only as the last fallback ------------
 YAHOO_Q = {"price": 4194.0, "prevClose": 4188.5, "marketTime": 1_790_823_100, "currency": "USD"}
+SPOT_Q = {"price": 4185.5, "prevClose": 4170.0, "marketTime": 1_790_823_990, "currency": "USD"}
 BINANCE_Q = {"price": 4168.7, "prevClose": 4188.5, "marketTime": 1_790_823_700, "currency": "USD"}
 
 
@@ -205,44 +209,43 @@ def both_sources(monkeypatch):
     monkeypatch.setattr(quotes.market_data, "yahoo_live_quote", lambda s: YAHOO_Q)
 
 
-def test_a_commodity_uses_binance_by_default_and_yahoo_cme_when_asked(both_sources):
-    assert quotes.pick_quote("GC=F") == ("binance", BINANCE_Q)
+def test_a_commodity_uses_spot_by_default_and_binance_futures_when_asked(both_sources, monkeypatch):
+    monkeypatch.setattr(quotes.spot, "quote", lambda s: SPOT_Q)
+    assert quotes.pick_quote("GC=F") == ("swissquote", SPOT_Q)
+    assert quotes.pick_quote("CL=F") == ("dukascopy", SPOT_Q)
+    monkeypatch.setattr(quotes.futures, "quote", lambda s: None)    # Hyperliquid down: Binance carries futures
+    no_gas = {k: v for k, v in quotes.spot.SPOT.items() if k != "NG=F"}
+    monkeypatch.setattr(quotes.spot, "SPOT", no_gas)
+    assert quotes.pick_quote("NG=F") == ("binance", BINANCE_Q)     # a commodity without a spot feed: the perpetual
+    monkeypatch.setattr(quotes.spot, "quote", lambda s: None)
+    assert quotes.pick_quote("GC=F") == ("binance", BINANCE_Q)     # Swissquote down: the perpetual
     assert quotes.pick_quote("GC=F", "binance") == ("binance", BINANCE_Q)
-    assert quotes.pick_quote("GC=F", "yahoo") == ("yahoo-cme", YAHOO_Q)
+    monkeypatch.setattr(quotes.commodities, "quote", lambda s: None)
+    assert quotes.pick_quote("GC=F", "binance") == ("yahoo", YAHOO_Q)   # Binance down too: CME, the last resort
 
 
 def test_the_feed_choice_changes_nothing_for_other_symbols(monkeypatch):
     monkeypatch.setattr(quotes.market_data, "yahoo_live_quote", lambda s: YAHOO_Q)
-    assert quotes.pick_quote("AAPL", "yahoo") == quotes.pick_quote("AAPL") == ("yahoo", YAHOO_Q)
+    assert quotes.pick_quote("AAPL", "binance") == quotes.pick_quote("AAPL") == ("yahoo", YAHOO_Q)
 
 
 def test_an_unknown_feed_value_means_the_default():
-    assert quotes.clean_feed("yahoo") == "yahoo" and quotes.clean_feed("binance") == "binance"
+    assert quotes.clean_feed("futures") == "futures" and quotes.clean_feed("spot") == "spot"
+    assert quotes.clean_feed("binance") == "futures"            # the old name of the futures feed
+    assert quotes.clean_feed("yahoo") is None                  # the CME option was removed
     assert quotes.clean_feed("bogus") is None and quotes.clean_feed(None) is None
 
 
-def test_the_yahoo_feed_is_never_treated_as_a_push_feed():
-    binance_stream.record("GC=F", 1.0, 1)
-    assert quotes.is_pushed("GC=F") is True
-    assert quotes.is_pushed("GC=F", "yahoo") is False
 
-
-def test_quote_api_honours_the_feed_parameter(client, both_sources):
-    assert client.get("/api/quote?symbol=GOLD").get_json()["source"] == "binance"
-    d = client.get("/api/quote?symbol=GOLD&feed=yahoo").get_json()
-    assert d["source"] == "yahoo-cme" and d["price"] == 4194.0
-
-
-def test_candles_api_serves_yahoo_bars_for_the_yahoo_feed_and_marks_both(client, monkeypatch):
-    from orazio.routes import charts
-    monkeypatch.setattr(commodities, "candles", lambda s, i, r: ("1m", [{"time": 1, "open": 1, "high": 1, "low": 1, "close": 1, "volume": 0}]))
-    monkeypatch.setattr(charts, "_yahoo_candles", lambda s, i, r, feed=None: charts.jsonify({"symbol": s, "candles": [], "feedChoice": True, "feed": "yahoo"}))
-    b = client.get("/api/candles?symbol=GOLD&interval=1m&range=1D").get_json()
-    assert b["source"] == "binance" and b["feedChoice"] is True and b["feed"] == "binance"
-    y = client.get("/api/candles?symbol=GOLD&interval=1m&range=1D&feed=yahoo").get_json()
-    assert y["feed"] == "yahoo" and "source" not in y
 
 
 def test_config_lists_the_commodities_that_have_a_source_switch(client):
     d = client.get("/api/config").get_json()["commodities"]
     assert {"GOLD", "GC=F", "CRUDE", "CL=F"} <= set(d) and "BTC" not in d and "NIFTY" not in d
+
+
+def test_quote_api_honours_the_feed_parameter(client, both_sources, monkeypatch):
+    monkeypatch.setattr(quotes.spot, "quote", lambda s: SPOT_Q)
+    assert client.get("/api/quote?symbol=GOLD").get_json()["source"] == "swissquote"
+    assert client.get("/api/quote?symbol=GOLD&feed=binance").get_json()["source"] == "binance"
+    assert client.get("/api/quote?symbol=GOLD&feed=yahoo").get_json()["source"] == "swissquote"   # removed option = default

@@ -1,0 +1,12 @@
+[
+  {"name": "price crossings", "closes": [90, 99, 101, 105, 98, 102], "rule": {"type": "above", "value": 100}, "fires": [2, 5]},
+  {"name": "price crossing down", "closes": [90, 99, 101, 105, 98, 102], "rule": {"type": "below", "value": 100}, "fires": [4]},
+  {"name": "touching the level is not past it", "closes": [100, 100, 101, 100, 99], "rule": {"type": "above", "value": 100}, "fires": [2]},
+  {"name": "day change up", "closes": [100, 103, 106.1, 100], "rule": {"type": "chgUp", "value": 3}, "fires": [1, 2]},
+  {"name": "day change down", "closes": [100, 103, 106.1, 100], "rule": {"type": "chgDown", "value": 3}, "fires": [3]},
+  {"name": "sma cross up", "closes": [10, 10, 10, 9, 12], "rule": {"type": "smaAbove", "value": 3}, "fires": [4]},
+  {"name": "sma cross down", "closes": [10, 11, 12, 13, 9, 8], "rule": {"type": "smaBelow", "value": 3}, "fires": [4]},
+  {"name": "rsi cross above", "closes": [100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 88, 87, 86, 85, 90, 96, 103, 111], "rule": {"type": "rsiAbove", "value": 50}, "fires": [18]},
+  {"name": "rsi cross below", "closes": [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 110, 104, 97, 89], "rule": {"type": "rsiBelow", "value": 50}, "fires": [18]},
+  {"name": "too short for rsi", "closes": [100, 101, 102], "rule": {"type": "rsiAbove", "value": 50}, "fires": []}
+]

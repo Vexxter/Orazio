@@ -1,5 +1,5 @@
 // Left-rail Closing Auction Session summary panel: countdown + per-index open/close numbers.
-import { $, esc } from './state.js';
+import { $, esc, visible } from './state.js';
 
 let casPhase = null, casSeconds = null, casPollAt = 0, casStatus = '', casStage = '';
 
@@ -70,6 +70,8 @@ export async function loadCas() {
       <span class="cas-tag" title="${mode === 'close' ? 'Indicative close' : 'Auction-discovered open'}">${tag}</span>
       <span class="cas-val num">${value === null || value === undefined ? '–' : Number(value).toFixed(2)}</span>
       <span class="cas-chg num ${cls}">${pct === null || pct === undefined ? '' : (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%'}</span>
+      ${mode === 'close' && r.rebuiltClose != null ? `<span class="cas-impl" title="Real-time estimate rebuilt from each stock's auction price (NSE, kept current between NSE's prints by BSE) (${Math.round((r.rebuiltCoverage || 0) * 100)}% priced so far). NSE's own indicative updates about once a minute.">Live est. <b class="num reb">${Number(r.rebuiltClose).toFixed(2)}</b> <span class="num ${r.rebuiltClosePct >= 0 ? 'up' : 'down'}">${r.rebuiltClosePct >= 0 ? '+' : ''}${r.rebuiltClosePct.toFixed(2)}%</span></span>` : ''}
+      ${mode === 'close' && r.impliedClose != null ? `<span class="cas-impl" title="Estimate: the front-month future now, minus its basis to the index at 15:14:59. Futures trade through the auction, so this is available from 15:15 (NSE's indicative starts ~15:20). NSE's public futures feed updates about once a minute.">FUT-implied <b class="num">${Number(r.impliedClose).toFixed(2)}</b> <span class="num ${r.impliedClosePct >= 0 ? 'up' : 'down'}">${r.impliedClosePct >= 0 ? '+' : ''}${r.impliedClosePct.toFixed(2)}%</span></span>` : ''}
     </div>`;
   }).join('');
 
@@ -94,10 +96,10 @@ setInterval(() => {
     if (left >= 0) { const keep = casSeconds; casSeconds = left; renderCasPhase(); casSeconds = keep; }
   }
 }, 1000);
-setInterval(() => {
+setInterval(visible(() => {
   const live = casPhase === 'pre-open' || casPhase === 'post-close';
   if (live || Date.now() - casPollAt > 60000) loadCas();
-}, 5000);
+}), 5000);
 
 $('cas-toggle').addEventListener('click', () => {
   const open = $('cas-toggle').getAttribute('aria-expanded') === 'true';

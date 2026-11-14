@@ -5,9 +5,9 @@ import yfinance as yf
 from flask import abort, jsonify, request
 
 from .. import fno as fno_service
-from .. import commodities, gift_nifty, live_volume, market_data, poller, quotes
-from ..candles import df_to_rows
-from ..constants import HISTORY_PERIOD, INTERVAL_SECONDS, RANGE_TO_PERIOD
+from .. import bonds, commodities, futures, gift_nifty, gsec, live_volume, market_data, poller, quotes, spot
+from ..candles import df_to_rows, resample_weekly
+from ..constants import HISTORY_PERIOD, INTERVAL_SECONDS, RANGE_ALIASES, RANGE_TO_PERIOD
 from ..corporate_actions import adjust_candles_for_splits
 from ..symbols import clean_symbol, resolve_interval_range
 from . import bp
@@ -34,15 +34,20 @@ def _last_session_rows(symbol, interval):
 # ---- candles ---------------------------------------------------------------------
 def _future_candles(symbol, interval, rng):
     try:
-        return jsonify(fno_service.candles(symbol, interval, rng))
+        payload = fno_service.candles(symbol, "1d" if interval == "1wk" else interval, rng)
     except ValueError as e:
         abort(404, description=str(e))
+    if interval == "1wk":   # NSE has no weekly futures series: build it from the daily one
+        payload = {**payload, "interval": "1wk", "candles": resample_weekly(payload["candles"])}
+    return jsonify(payload)
 
 
 def _gift_candles(interval, rng):
     """GIFT Nifty has no Yahoo ticker: intraday bars are the ones this app saved itself, daily
     history is NSE IX's official bhavcopy (see gift_nifty.chart)."""
-    used, rows = gift_nifty.chart(interval, rng)
+    used, rows = gift_nifty.chart("1d" if interval == "1wk" else interval, rng)
+    if interval == "1wk":
+        used, rows = "1wk", resample_weekly(rows)
     return jsonify({"symbol": gift_nifty.SYMBOL, "interval": used, "range": rng, "candles": rows, "liveBars": 0})
 
 
@@ -50,6 +55,9 @@ def _yahoo_candles(symbol, requested_interval, requested_range, feed=None):
     interval, rng = resolve_interval_range(requested_interval, requested_range)
     df = yf.download(symbol, period=RANGE_TO_PERIOD[rng], interval=interval, progress=False)
     rows = df_to_rows(df)
+    if not rows and RANGE_TO_PERIOD[rng] not in ("1d", "5d"):
+        # Fresh listings (rights entitlements like OLAELEC-RE.NS) only accept 1d/5d; yfinance 0-rows anything longer.
+        rows = df_to_rows(yf.download(symbol, period="5d", interval=interval, progress=False))
     if not rows and rng == "1D" and interval in INTERVAL_SECONDS:
         rows = _last_session_rows(symbol, interval)
     rows = adjust_candles_for_splits(symbol, rows)
@@ -69,11 +77,12 @@ def _yahoo_candles(symbol, requested_interval, requested_range, feed=None):
 
     payload = {"symbol": symbol, "interval": interval, "range": rng, "candles": rows, "liveBars": live_added}
     if commodities.is_commodity(symbol):
-        # These bars are CME futures (delayed); the live price is a Binance perpetual that sits
-        # ~0.5-2% away. Folding that tick into a CME candle would mix instruments, so tell the page not to.
+        # Futures history the perpetuals can't serve (5Y/ALL, long daily ranges): Yahoo's CME futures. The live
+        # price is a perpetual that can sit a little away from CME's contract, so the page mustn't fold it in.
         payload["liveFold"] = False
         payload["feedChoice"] = True
-        payload["feed"] = "yahoo"
+        payload["feed"] = "futures"
+        payload["note"] = "Futures history: CME via Yahoo (the real-time futures feeds only go back to early 2026)"
     return jsonify(payload)
 
 
@@ -84,7 +93,7 @@ def _commodity_candles(symbol, interval, rng):
         return None
     used, rows = served
     return jsonify({"symbol": symbol, "interval": used, "range": rng, "candles": rows, "liveBars": 0, "source": "binance",
-                    "feedChoice": True, "feed": "binance"})
+                    "feedChoice": True, "feed": "futures"})
 
 
 @bp.route("/api/candles")
@@ -93,15 +102,30 @@ def candles():
     symbol = clean_symbol(request.args.get("symbol"))
     interval = request.args.get("interval", "1m")
     rng = request.args.get("range", "1D")
+    rng = RANGE_ALIASES.get(rng, rng)
     if symbol.endswith("-FUT"):
         return _future_candles(symbol, interval, rng)
     if symbol == gift_nifty.SYMBOL:
         return _gift_candles(interval, rng)
+    if bonds.is_bond(symbol):
+        return jsonify(bonds.candles(symbol, interval, rng))
+    if gsec.is_gsec(symbol):
+        return jsonify(gsec.candles(symbol, interval, rng))
     feed = quotes.clean_feed(request.args.get("feed"))
-    if commodities.is_commodity(symbol) and feed != "yahoo":
-        response = _commodity_candles(symbol, interval, rng)
-        if response is not None:
-            return response
+    if commodities.is_commodity(symbol):
+        f = quotes.effective_feed(symbol, feed)
+        if f == "spot":
+            payload = spot.candles(symbol, interval, rng)
+            if payload is not None:
+                return jsonify(payload)
+            f = "futures"                      # Dukascopy unreachable: fall through to the futures feed
+        if f == "futures":
+            payload = futures.candles(symbol, interval, rng)         # oil, gas, copper: Hyperliquid
+            if payload is not None:
+                return jsonify(payload)
+            response = _commodity_candles(symbol, interval, rng)     # gold, silver (or Hyperliquid down): Binance
+            if response is not None:
+                return response
     return _yahoo_candles(symbol, interval, rng, feed)
 
 
@@ -115,8 +139,18 @@ def candles_history():
         before = int(request.args.get("before", ""))
     except ValueError:
         abort(400, description="before must be a unix timestamp")
-    if symbol.endswith("-FUT") or symbol == gift_nifty.SYMBOL:  # no older intraday data exists
+    # ponytail: bond yields don't scroll back past the range loaded; pick a longer range instead. Add a CNBC
+    # bars page here if that's wanted.
+    if symbol.endswith("-FUT") or symbol == gift_nifty.SYMBOL or bonds.is_bond(symbol) or gsec.is_gsec(symbol):
         return jsonify({"symbol": symbol, "interval": interval, "candles": [], "exhausted": True})
+
+    if request.args.get("source") == "dukascopy" and spot.has_spot(symbol):   # spot chart: page back on Dukascopy
+        rows = spot.older(symbol, interval, before)
+        return jsonify({"symbol": symbol, "interval": interval, "candles": rows, "exhausted": len(rows) == 0})
+
+    if request.args.get("source") == "hyperliquid" and futures.is_hl(symbol):   # futures chart: same market
+        rows = futures.older(symbol, interval, before)
+        return jsonify({"symbol": symbol, "interval": interval, "candles": rows, "exhausted": len(rows) == 0})
 
     if request.args.get("source") == "binance":  # the chart on screen is Binance's: scroll back on the same instrument
         rows = commodities.history(symbol, interval, before)
